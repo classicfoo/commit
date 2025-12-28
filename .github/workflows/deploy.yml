@@ -25,6 +25,19 @@ jobs:
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
 
+    - name: Test SFTP login
+        env:
+            SFTP_HOST: ${{ secrets.SFTP_HOST }}
+            SFTP_PORT: ${{ secrets.SFTP_PORT }}
+            SFTP_USER: ${{ secrets.SFTP_USER }}
+            SFTP_PASS: ${{ secrets.SFTP_PASS }}
+        run: |
+            set -euo pipefail
+            sudo apt-get update && sudo apt-get install -y lftp
+
+            # Try just logging in + listing root
+            lftp -d -u "$SFTP_USER","$SFTP_PASS" -p "$SFTP_PORT" "sftp://$SFTP_HOST" -e "ls; bye"
+
       - name: Deploy via SFTP mirror
         env:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
