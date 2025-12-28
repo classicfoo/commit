@@ -24,6 +24,7 @@ $pageHint = 'Sign in to continue to your account.';
 if ($currentUser) {
     $pageHeading = 'Welcome, ' . $currentUser['email'];
     $pageHint = 'You are signed in with your username.';
+    $showPageHeader = false;
 }
 
 include __DIR__ . '/auth_header.php';
@@ -39,14 +40,7 @@ include __DIR__ . '/auth_header.php';
   </div>
 <?php endif; ?>
 
-<?php if ($currentUser): ?>
-  <section class="surface">
-    <form method="post">
-      <input type="hidden" name="action" value="logout">
-      <button type="submit" class="btn btn-outline-dark">Log out</button>
-    </form>
-  </section>
-<?php else: ?>
+<?php if (!$currentUser): ?>
   <section class="surface">
     <h2 class="h5">Log in</h2>
     <p class="hint">Welcome back. Enter your credentials.</p>
