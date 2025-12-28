@@ -97,19 +97,10 @@ $currentUser = $currentUser ?? null;
     <nav class="app-nav">
       <div class="container-fluid px-4 py-3 d-flex align-items-center justify-content-between">
         <span class="app-brand">commit</span>
-        <div class="d-flex align-items-center gap-3">
-          <span class="status-pill">
-            <?php if ($currentUser): ?>
-              Signed in as <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
-            <?php else: ?>
-              Not signed in
-            <?php endif; ?>
-          </span>
-          <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#mainMenu" aria-controls="mainMenu">
-            <span class="visually-hidden">Open menu</span>
-            ☰
-          </button>
-        </div>
+        <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#mainMenu" aria-controls="mainMenu">
+          <span class="visually-hidden">Open menu</span>
+          ☰
+        </button>
       </div>
     </nav>
     <div class="offcanvas offcanvas-end" tabindex="-1" id="mainMenu" aria-labelledby="mainMenuLabel">
@@ -118,9 +109,13 @@ $currentUser = $currentUser ?? null;
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
       <div class="offcanvas-body d-flex flex-column gap-3">
-        <div class="small text-uppercase text-muted">Navigation</div>
-        <a class="text-decoration-none" href="index.php">Login</a>
-        <a class="text-decoration-none" href="register.php">Register</a>
+        <span class="status-pill align-self-start">
+          <?php if ($currentUser): ?>
+            Signed in as <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
+          <?php else: ?>
+            Not signed in
+          <?php endif; ?>
+        </span>
         <?php if ($currentUser): ?>
           <form method="post" class="mt-2">
             <input type="hidden" name="action" value="logout">

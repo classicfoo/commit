@@ -24,12 +24,6 @@ $pageHint = 'Sign in to continue to your account.';
 include __DIR__ . '/auth_header.php';
 ?>
 
-<?php if ($successMessage): ?>
-  <div class="alert alert-success" role="alert">
-    <?php echo htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?>
-  </div>
-<?php endif; ?>
-
 <?php if ($errors): ?>
   <div class="alert alert-danger" role="alert">
     <ul class="mb-0">
@@ -42,9 +36,6 @@ include __DIR__ . '/auth_header.php';
 
 <?php if ($currentUser): ?>
   <section class="surface">
-    <h2 class="h5">You are signed in</h2>
-    <p class="mb-1"><strong>Email:</strong> <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?></p>
-    <p class="hint mb-3">Next step: redirect authenticated users to the main app experience.</p>
     <form method="post">
       <input type="hidden" name="action" value="logout">
       <button type="submit" class="btn btn-outline-dark">Log out</button>
