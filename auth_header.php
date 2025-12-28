@@ -8,6 +8,7 @@ if (!isset($pageHeading)) {
 if (!isset($pageHint)) {
     $pageHint = '';
 }
+$currentUser = $currentUser ?? null;
 ?>
 <!doctype html>
 <html lang="en">
@@ -26,6 +27,16 @@ if (!isset($pageHint)) {
         color: #0f172a;
         min-height: 100vh;
         border-top: 1px solid #e5e7eb;
+      }
+      .app-nav {
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+      }
+      .app-brand {
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #0f172a;
       }
       .app-shell {
         max-width: 920px;
@@ -72,12 +83,55 @@ if (!isset($pageHint)) {
         color: #6b7280;
         font-size: 0.9rem;
       }
+      .status-pill {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        padding: 6px 14px;
+        color: #334155;
+      }
     </style>
   </head>
   <body>
+    <nav class="app-nav">
+      <div class="container-fluid px-4 py-3 d-flex align-items-center justify-content-between">
+        <span class="app-brand">commit</span>
+        <div class="d-flex align-items-center gap-3">
+          <span class="status-pill">
+            <?php if ($currentUser): ?>
+              Signed in as <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
+            <?php else: ?>
+              Not signed in
+            <?php endif; ?>
+          </span>
+          <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#mainMenu" aria-controls="mainMenu">
+            <span class="visually-hidden">Open menu</span>
+            ☰
+          </button>
+        </div>
+      </div>
+    </nav>
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="mainMenu" aria-labelledby="mainMenuLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="mainMenuLabel">Menu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body d-flex flex-column gap-3">
+        <div class="small text-uppercase text-muted">Navigation</div>
+        <a class="text-decoration-none" href="index.php">Login</a>
+        <a class="text-decoration-none" href="register.php">Register</a>
+        <?php if ($currentUser): ?>
+          <form method="post" class="mt-2">
+            <input type="hidden" name="action" value="logout">
+            <button type="submit" class="btn btn-outline-dark w-100">Log out</button>
+          </form>
+        <?php endif; ?>
+      </div>
+    </div>
     <div class="app-shell">
       <header class="d-flex flex-column gap-2 mb-4">
-        <span class="brand-mark">Minimal Auth</span>
+        <span class="brand-mark">commit</span>
         <h1 class="h3 mb-0"><?php echo htmlspecialchars($pageHeading, ENT_QUOTES, 'UTF-8'); ?></h1>
         <?php if ($pageHint !== ''): ?>
           <p class="hint"><?php echo htmlspecialchars($pageHint, ENT_QUOTES, 'UTF-8'); ?></p>
