@@ -42,6 +42,7 @@ $currentUser = $currentUser ?? null;
         max-width: 920px;
         margin: 48px auto;
         padding: 0 24px 64px;
+        background: transparent;
       }
       .brand-mark {
         letter-spacing: 0.08em;
@@ -90,6 +91,26 @@ $currentUser = $currentUser ?? null;
         font-size: 0.85rem;
         padding: 6px 14px;
         color: #334155;
+      }
+      @media (max-width: 576px) {
+        .app-shell {
+          margin: 24px auto;
+          padding: 0 16px 48px;
+        }
+        .surface {
+          padding: 24px;
+          border-radius: 12px;
+        }
+        .app-nav .container-fluid {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+        .app-shell header .h3 {
+          font-size: 1.5rem;
+        }
+        .surface form .btn {
+          width: 100%;
+        }
       }
     </style>
   </head>
