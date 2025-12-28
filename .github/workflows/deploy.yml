@@ -1,0 +1,53 @@
+name: Deploy to Hosting (SFTP)
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # If you have a build step, add it here (npm install/build, composer install, etc.)
+      # - name: Build
+      #   run: |
+      #     npm ci
+      #     npm run build
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via SFTP mirror
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASS: ${{ secrets.SFTP_PASS }}
+          SFTP_DIR:  ${{ secrets.SFTP_DIR }}
+        run: |
+          set -euo pipefail
+
+          # Upload repo contents to the remote directory.
+          # --delete removes remote files that no longer exist locally.
+          # Add/remove --exclude lines to fit your project.
+          lftp -u "$SFTP_USER","$SFTP_PASS" -p "$SFTP_PORT" "sftp://$SFTP_HOST" -e "
+            set sftp:auto-confirm yes;
+            set net:max-retries 2;
+            set net:timeout 20;
+            set net:reconnect-interval-base 5;
+            mirror -R --verbose --delete \
+              --exclude .git/ \
+              --exclude .github/ \
+              --exclude node_modules/ \
+              --exclude .env \
+              ./ $SFTP_DIR;
+            bye
+          "
