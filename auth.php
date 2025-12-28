@@ -8,15 +8,35 @@ if (!is_dir($databaseDir)) {
 
 $databasePath = $databaseDir . '/app.db';
 $db = new SQLite3($databasePath);
-$db->exec('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)');
 
-function handle_register(SQLite3 $db, string $email, string $password): array
+$tableInfo = $db->query('PRAGMA table_info(users)');
+$columns = [];
+while ($column = $tableInfo->fetchArray(SQLITE3_ASSOC)) {
+    $columns[] = $column['name'];
+}
+if (!in_array('first_name', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN first_name TEXT NOT NULL DEFAULT ""');
+}
+if (!in_array('last_name', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN last_name TEXT NOT NULL DEFAULT ""');
+}
+
+function handle_register(SQLite3 $db, string $email, string $firstName, string $lastName, string $password): array
 {
     $errors = [];
     $successMessage = '';
 
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please provide a valid email address.';
+    }
+
+    if ($firstName === '') {
+        $errors[] = 'Please provide your first name.';
+    }
+
+    if ($lastName === '') {
+        $errors[] = 'Please provide your last name.';
     }
 
     if (strlen($password) < 8) {
@@ -31,8 +51,10 @@ function handle_register(SQLite3 $db, string $email, string $password): array
             $errors[] = 'An account with that email already exists.';
         } else {
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $insert = $db->prepare('INSERT INTO users (email, password_hash, created_at) VALUES (:email, :hash, :created_at)');
+            $insert = $db->prepare('INSERT INTO users (email, first_name, last_name, password_hash, created_at) VALUES (:email, :first_name, :last_name, :hash, :created_at)');
             $insert->bindValue(':email', $email, SQLITE3_TEXT);
+            $insert->bindValue(':first_name', $firstName, SQLITE3_TEXT);
+            $insert->bindValue(':last_name', $lastName, SQLITE3_TEXT);
             $insert->bindValue(':hash', $hash, SQLITE3_TEXT);
             $insert->bindValue(':created_at', gmdate('Y-m-d H:i:s'), SQLITE3_TEXT);
             if ($insert->execute()) {
@@ -60,7 +82,7 @@ function handle_login(SQLite3 $db, string $email, string $password): array
     }
 
     if (!$errors) {
-        $statement = $db->prepare('SELECT id, email, password_hash FROM users WHERE email = :email');
+        $statement = $db->prepare('SELECT id, email, first_name, last_name, password_hash FROM users WHERE email = :email');
         $statement->bindValue(':email', $email, SQLITE3_TEXT);
         $result = $statement->execute();
         $user = $result->fetchArray(SQLITE3_ASSOC);
@@ -70,6 +92,8 @@ function handle_login(SQLite3 $db, string $email, string $password): array
             $_SESSION['user'] = [
                 'id' => $user['id'],
                 'email' => $user['email'],
+                'first_name' => $user['first_name'],
+                'last_name' => $user['last_name'],
             ];
             $successMessage = 'Welcome back! You are now signed in.';
         }
