@@ -92,6 +92,46 @@ $currentUser = $currentUser ?? null;
         padding: 6px 14px;
         color: #334155;
       }
+      .menu-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        height: 100%;
+      }
+      .menu-greeting {
+        font-size: 0.95rem;
+        color: #0f172a;
+        margin: 0;
+      }
+      .menu-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      .menu-item,
+      .menu-action button {
+        width: 100%;
+        padding: 10px 16px;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-bottom: 1px solid #e5e7eb;
+        color: #111827;
+        font-size: 0.95rem;
+      }
+      .menu-item:last-child,
+      .menu-action:last-child button {
+        border-bottom: 0;
+      }
+      .menu-action {
+        margin: 0;
+      }
+      .menu-footer {
+        font-size: 0.85rem;
+        color: #9ca3af;
+        margin: auto 0 0;
+      }
       @media (max-width: 576px) {
         .app-shell {
           margin: 24px auto;
@@ -129,20 +169,27 @@ $currentUser = $currentUser ?? null;
         <h5 class="offcanvas-title" id="mainMenuLabel">Menu</h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
       </div>
-      <div class="offcanvas-body d-flex flex-column gap-3">
-        <span class="status-pill align-self-start">
-          <?php if ($currentUser): ?>
-            Signed in as <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
-          <?php else: ?>
-            Not signed in
-          <?php endif; ?>
-        </span>
-        <?php if ($currentUser): ?>
-          <form method="post" class="mt-2">
-            <input type="hidden" name="action" value="logout">
-            <button type="submit" class="btn btn-outline-dark w-100">Log out</button>
-          </form>
-        <?php endif; ?>
+      <div class="offcanvas-body">
+        <div class="menu-panel">
+          <p class="menu-greeting">
+            <?php if ($currentUser): ?>
+              Hello, <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
+            <?php else: ?>
+              Hello
+            <?php endif; ?>
+          </p>
+          <div class="menu-card">
+            <?php if ($currentUser): ?>
+              <form method="post" class="menu-action">
+                <input type="hidden" name="action" value="logout">
+                <button type="submit">Logout</button>
+              </form>
+            <?php else: ?>
+              <div class="menu-item">Log in to continue</div>
+            <?php endif; ?>
+          </div>
+          <p class="menu-footer">All changes saved</p>
+        </div>
       </div>
     </div>
     <div class="app-shell">
