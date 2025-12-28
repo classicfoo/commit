@@ -4,17 +4,17 @@ require __DIR__ . '/auth.php';
 $errors = [];
 $successMessage = '';
 $email = '';
+$firstName = '';
+$lastName = '';
 
 $action = $_POST['action'] ?? null;
 
 if ($action === 'register') {
     $email = trim($_POST['email'] ?? '');
+    $firstName = trim($_POST['first_name'] ?? '');
+    $lastName = trim($_POST['last_name'] ?? '');
     $password = $_POST['password'] ?? '';
-    [$errors, $successMessage] = handle_register($db, $email, $password);
-    if ($successMessage) {
-        header('Location: index.php');
-        exit;
-    }
+    [$errors, $successMessage] = handle_register($db, $email, $firstName, $lastName, $password);
 } elseif ($action === 'logout') {
     $successMessage = handle_logout();
 }
@@ -65,6 +65,14 @@ include __DIR__ . '/auth_header.php';
       <div>
         <label class="form-label" for="register-email">Email</label>
         <input class="form-control" type="email" id="register-email" name="email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
+      </div>
+      <div>
+        <label class="form-label" for="register-first-name">First name</label>
+        <input class="form-control" type="text" id="register-first-name" name="first_name" value="<?php echo htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'); ?>" required>
+      </div>
+      <div>
+        <label class="form-label" for="register-last-name">Last name</label>
+        <input class="form-control" type="text" id="register-last-name" name="last_name" value="<?php echo htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'); ?>" required>
       </div>
       <div>
         <label class="form-label" for="register-password">Password</label>

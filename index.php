@@ -21,6 +21,11 @@ $pageTitle = 'Log in';
 $pageHeading = 'Welcome back';
 $pageHint = 'Sign in to continue to your account.';
 
+if ($currentUser) {
+    $pageHeading = 'Welcome, ' . $currentUser['email'];
+    $pageHint = 'You are signed in with your username.';
+}
+
 include __DIR__ . '/auth_header.php';
 ?>
 
