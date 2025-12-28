@@ -7,19 +7,19 @@ $email = '';
 
 $action = $_POST['action'] ?? null;
 
-if ($action === 'login') {
+if ($action === 'register') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    [$errors, $successMessage] = handle_login($db, $email, $password);
+    [$errors, $successMessage] = handle_register($db, $email, $password);
 } elseif ($action === 'logout') {
     $successMessage = handle_logout();
 }
 
 $currentUser = current_user();
 
-$pageTitle = 'Log in';
-$pageHeading = 'Welcome back';
-$pageHint = 'Sign in to continue to your account.';
+$pageTitle = 'Register';
+$pageHeading = 'Create your account';
+$pageHint = 'Join the app with a new email and password.';
 
 include __DIR__ . '/auth_header.php';
 ?>
@@ -44,30 +44,32 @@ include __DIR__ . '/auth_header.php';
   <section class="surface">
     <h2 class="h5">You are signed in</h2>
     <p class="mb-1"><strong>Email:</strong> <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?></p>
-    <p class="hint mb-3">Next step: redirect authenticated users to the main app experience.</p>
+    <p class="hint mb-3">You can log out to register a different account.</p>
     <form method="post">
       <input type="hidden" name="action" value="logout">
       <button type="submit" class="btn btn-outline-dark">Log out</button>
     </form>
+    <div class="divider"></div>
+    <p class="hint mb-0">Already have an account? <a href="index.php">Return to login</a>.</p>
   </section>
 <?php else: ?>
   <section class="surface">
-    <h2 class="h5">Log in</h2>
-    <p class="hint">Welcome back. Enter your credentials.</p>
+    <h2 class="h5">Register</h2>
+    <p class="hint">Create your account to get started.</p>
     <form method="post" class="d-grid gap-3">
-      <input type="hidden" name="action" value="login">
+      <input type="hidden" name="action" value="register">
       <div>
-        <label class="form-label" for="login-email">Email</label>
-        <input class="form-control" type="email" id="login-email" name="email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
+        <label class="form-label" for="register-email">Email</label>
+        <input class="form-control" type="email" id="register-email" name="email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
       </div>
       <div>
-        <label class="form-label" for="login-password">Password</label>
-        <input class="form-control" type="password" id="login-password" name="password" required>
+        <label class="form-label" for="register-password">Password</label>
+        <input class="form-control" type="password" id="register-password" name="password" minlength="8" required>
       </div>
-      <button type="submit" class="btn btn-neutral">Sign in</button>
+      <button type="submit" class="btn btn-neutral">Create account</button>
     </form>
     <div class="divider"></div>
-    <p class="hint mb-0">Don’t have an account? <a href="register.php">Create one here</a>.</p>
+    <p class="hint mb-0">Already have an account? <a href="index.php">Log in here</a>.</p>
   </section>
 <?php endif; ?>
 
