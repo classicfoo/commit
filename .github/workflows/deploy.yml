@@ -44,10 +44,12 @@ jobs:
             set net:timeout 20;
             set net:reconnect-interval-base 5;
             mirror -R --verbose --delete \
-              --exclude .git/ \
-              --exclude .github/ \
-              --exclude node_modules/ \
-              --exclude .env \
-              ./ $SFTP_DIR;
+            --exclude .git/ \
+            --exclude .github/ \
+            --exclude node_modules/ \
+            --exclude .env \
+            --exclude data/ \
+            --exclude uploads/ \
+            ./ $SFTP_DIR;
             bye
           "
