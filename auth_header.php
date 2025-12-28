@@ -8,6 +8,7 @@ if (!isset($pageHeading)) {
 if (!isset($pageHint)) {
     $pageHint = '';
 }
+$showPageHeader = $showPageHeader ?? true;
 $currentUser = $currentUser ?? null;
 ?>
 <!doctype html>
@@ -146,10 +147,12 @@ $currentUser = $currentUser ?? null;
       </div>
     </div>
     <div class="app-shell">
-      <header class="d-flex flex-column gap-2 mb-4">
-        <span class="brand-mark">commit</span>
-        <h1 class="h3 mb-0"><?php echo htmlspecialchars($pageHeading, ENT_QUOTES, 'UTF-8'); ?></h1>
-        <?php if ($pageHint !== ''): ?>
-          <p class="hint"><?php echo htmlspecialchars($pageHint, ENT_QUOTES, 'UTF-8'); ?></p>
-        <?php endif; ?>
-      </header>
+      <?php if ($showPageHeader): ?>
+        <header class="d-flex flex-column gap-2 mb-4">
+          <span class="brand-mark">commit</span>
+          <h1 class="h3 mb-0"><?php echo htmlspecialchars($pageHeading, ENT_QUOTES, 'UTF-8'); ?></h1>
+          <?php if ($pageHint !== ''): ?>
+            <p class="hint"><?php echo htmlspecialchars($pageHint, ENT_QUOTES, 'UTF-8'); ?></p>
+          <?php endif; ?>
+        </header>
+      <?php endif; ?>
