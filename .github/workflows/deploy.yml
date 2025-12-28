@@ -2,7 +2,7 @@ name: Deploy to Hosting (SFTP)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["prod"]
 
 concurrency:
   group: deploy-main
