@@ -11,6 +11,10 @@ if ($action === 'register') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     [$errors, $successMessage] = handle_register($db, $email, $password);
+    if ($successMessage) {
+        header('Location: index.php');
+        exit;
+    }
 } elseif ($action === 'logout') {
     $successMessage = handle_logout();
 }
