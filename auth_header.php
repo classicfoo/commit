@@ -13,6 +13,7 @@ $currentUser = $currentUser ?? null;
 $route = $route ?? '';
 $isCommitmentsRoute = in_array($route, ['commitments', 'commitment'], true);
 $isNotificationsRoute = $route === 'notifications';
+$isExploreRoute = in_array($route, ['explore', 'person'], true);
 ?>
 <!doctype html>
 <html lang="en">
@@ -137,6 +138,53 @@ $isNotificationsRoute = $route === 'notifications';
         color: #9ca3af;
         margin: auto 0 0;
       }
+      .person-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 20px 24px;
+        background: #ffffff;
+      }
+      .person-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #0f172a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+      }
+      .person-avatar-lg {
+        width: 64px;
+        height: 64px;
+        font-size: 1.1rem;
+      }
+      .person-subtext {
+        color: #475569;
+        font-size: 0.9rem;
+      }
+      .commitment-summary {
+        margin-top: 12px;
+      }
+      .commitment-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .commitment-chip {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.85rem;
+        color: #0f172a;
+      }
+      .commitment-chip-muted {
+        color: #64748b;
+        background: #f1f5f9;
+      }
       @media (max-width: 576px) {
         .app-shell {
           margin: 24px auto;
@@ -182,6 +230,7 @@ $isNotificationsRoute = $route === 'notifications';
             </p>
             <div class="menu-list">
               <a class="menu-link<?php echo $isCommitmentsRoute ? ' is-active' : ''; ?>" href="index.php?r=commitments">Commitments</a>
+              <a class="menu-link<?php echo $isExploreRoute ? ' is-active' : ''; ?>" href="index.php?r=explore">Explore</a>
               <a class="menu-link<?php echo $isNotificationsRoute ? ' is-active' : ''; ?>" href="index.php?r=notifications">Notifications</a>
               <form method="post" class="menu-action">
                 <input type="hidden" name="action" value="logout">
