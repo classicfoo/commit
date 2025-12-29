@@ -41,6 +41,12 @@ function fetch_commitment_requirements(SQLite3 $db, int $commitmentId): array
     return $requirements;
 }
 
+function format_owner_name(?string $firstName, ?string $lastName): string
+{
+    $name = trim(sprintf('%s %s', $firstName ?? '', $lastName ?? ''));
+    return $name !== '' ? $name : 'Unknown owner';
+}
+
 function evaluate_commitment_status(SQLite3 $db, int $commitmentId, int $ownerUserId): array
 {
     $requirements = fetch_commitment_requirements($db, $commitmentId);
@@ -410,7 +416,7 @@ include __DIR__ . '/auth_header.php';
       if (!in_array($activeTab, ['all', 'create'], true)) {
           $activeTab = 'all';
       }
-      $statement = $db->prepare('SELECT commitments.id, commitments.title, commitments.description, commitments.created_at, users.email as owner_email FROM commitments JOIN users ON commitments.owner_user_id = users.id ORDER BY commitments.created_at DESC');
+      $statement = $db->prepare('SELECT commitments.id, commitments.title, commitments.description, commitments.created_at, users.first_name as owner_first_name, users.last_name as owner_last_name FROM commitments JOIN users ON commitments.owner_user_id = users.id ORDER BY commitments.created_at DESC');
       $commitmentsResult = $statement->execute();
     ?>
     <div class="d-flex gap-3 mb-4">
@@ -424,6 +430,7 @@ include __DIR__ . '/auth_header.php';
         <p class="hint">Select a commitment to view its requirements, posts, and status.</p>
         <div class="d-grid gap-3">
           <?php while ($commitment = $commitmentsResult->fetchArray(SQLITE3_ASSOC)): ?>
+            <?php $ownerName = format_owner_name($commitment['owner_first_name'] ?? '', $commitment['owner_last_name'] ?? ''); ?>
             <div class="border rounded-3 p-3">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
@@ -432,7 +439,7 @@ include __DIR__ . '/auth_header.php';
                       <?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                   </h3>
-                  <p class="hint mb-2">Owner: <?php echo htmlspecialchars($commitment['owner_email'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p class="hint mb-2">Owner: <?php echo htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8'); ?></p>
                   <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
                 </div>
                 <span class="status-pill">Commitment</span>
@@ -464,7 +471,7 @@ include __DIR__ . '/auth_header.php';
   <?php elseif ($route === 'commitment'): ?>
     <?php
       $commitmentId = (int) ($_GET['id'] ?? 0);
-      $statement = $db->prepare('SELECT commitments.*, users.email as owner_email FROM commitments JOIN users ON commitments.owner_user_id = users.id WHERE commitments.id = :id');
+      $statement = $db->prepare('SELECT commitments.*, users.first_name as owner_first_name, users.last_name as owner_last_name FROM commitments JOIN users ON commitments.owner_user_id = users.id WHERE commitments.id = :id');
       $statement->bindValue(':id', $commitmentId, SQLITE3_INTEGER);
       $commitmentResult = $statement->execute();
       $commitment = $commitmentResult->fetchArray(SQLITE3_ASSOC);
@@ -491,12 +498,13 @@ include __DIR__ . '/auth_header.php';
             $isSubscribed = (bool) $subscriptionResult->fetchArray(SQLITE3_ASSOC);
         }
         $status = evaluate_commitment_status($db, $commitmentId, (int) $commitment['owner_user_id']);
+        $ownerName = format_owner_name($commitment['owner_first_name'] ?? '', $commitment['owner_last_name'] ?? '');
       ?>
       <section class="surface">
         <div class="d-flex justify-content-between align-items-start gap-3">
           <div>
             <h2 class="h5 mb-1"><?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
-            <p class="hint mb-3">Owner: <?php echo htmlspecialchars($commitment['owner_email'], ENT_QUOTES, 'UTF-8'); ?></p>
+            <p class="hint mb-3">Owner: <?php echo htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8'); ?></p>
             <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
           </div>
           <?php if (!$isOwner): ?>
