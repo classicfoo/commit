@@ -29,7 +29,7 @@ include __DIR__ . '/auth_header.php';
 ?>
 
 <?php if ($successMessage): ?>
-  <div class="alert alert-success" role="alert">
+  <div class="alert alert-success js-auto-dismiss" role="alert">
     <?php echo htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?>
   </div>
 <?php endif; ?>
