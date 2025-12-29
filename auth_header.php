@@ -10,6 +10,9 @@ if (!isset($pageHint)) {
 }
 $showPageHeader = $showPageHeader ?? true;
 $currentUser = $currentUser ?? null;
+$route = $route ?? '';
+$isCommitmentsRoute = in_array($route, ['commitments', 'commitment'], true);
+$isNotificationsRoute = $route === 'notifications';
 ?>
 <!doctype html>
 <html lang="en">
@@ -97,26 +100,34 @@ $currentUser = $currentUser ?? null;
         color: #0f172a;
         margin: 0;
       }
-      .menu-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        background: #ffffff;
-        overflow: hidden;
+      .menu-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
-      .menu-item,
+      .menu-link,
       .menu-action button {
         width: 100%;
         padding: 10px 16px;
         text-align: left;
-        background: transparent;
-        border: 0;
-        border-bottom: 1px solid #e5e7eb;
+        background: #f8fafc;
+        border: 1px solid transparent;
+        border-radius: 12px;
         color: #111827;
         font-size: 0.95rem;
+        text-decoration: none;
+        transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
       }
-      .menu-item:last-child,
-      .menu-action:last-child button {
-        border-bottom: 0;
+      .menu-link:hover,
+      .menu-action button:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .menu-link.is-active {
+        background: #0f172a;
+        border-color: #0f172a;
+        color: #ffffff;
+        font-weight: 600;
       }
       .menu-action {
         margin: 0;
@@ -169,9 +180,9 @@ $currentUser = $currentUser ?? null;
             <p class="menu-greeting">
               Hello, <?php echo htmlspecialchars($currentUser['first_name'], ENT_QUOTES, 'UTF-8'); ?>
             </p>
-            <div class="menu-card">
-              <a class="menu-item" href="index.php?r=commitments">Commitments</a>
-              <a class="menu-item" href="index.php?r=notifications">Notifications</a>
+            <div class="menu-list">
+              <a class="menu-link<?php echo $isCommitmentsRoute ? ' is-active' : ''; ?>" href="index.php?r=commitments">Commitments</a>
+              <a class="menu-link<?php echo $isNotificationsRoute ? ' is-active' : ''; ?>" href="index.php?r=notifications">Notifications</a>
               <form method="post" class="menu-action">
                 <input type="hidden" name="action" value="logout">
                 <button type="submit">Logout</button>
