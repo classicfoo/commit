@@ -176,20 +176,19 @@ if ($currentUser) {
         }
     }
 
-    if ($action === 'create_post') {
+    if ($action === 'create_check_in') {
         $commitmentId = (int) ($_POST['commitment_id'] ?? 0);
-        $type = $_POST['type'] ?? '';
         $bodyText = trim($_POST['body_text'] ?? '');
         $imageUrl = trim($_POST['image_url'] ?? '');
 
         if ($commitmentId <= 0) {
             $errors[] = 'Invalid commitment.';
         }
-        if (!in_array($type, ['check_in', 'comment'], true)) {
-            $errors[] = 'Invalid post type.';
+        if ($commitmentId > 0 && !can_create_checkin($db, $currentUser['id'], $commitmentId)) {
+            $errors[] = 'Only the owner can post a check-in.';
         }
 
-        if ($type === 'check_in') {
+        if (!$errors) {
             $requirements = fetch_commitment_requirements($db, $commitmentId);
             $requiresText = false;
             $requiresImage = false;
@@ -209,7 +208,53 @@ if ($currentUser) {
             }
         }
 
-        if ($type === 'comment' && $bodyText === '') {
+        if (!$errors) {
+            $insert = $db->prepare('INSERT INTO posts (commitment_id, author_user_id, type, body_text, image_url, created_at) VALUES (:commitment_id, :author_user_id, :type, :body_text, :image_url, :created_at)');
+            $insert->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+            $insert->bindValue(':author_user_id', $currentUser['id'], SQLITE3_INTEGER);
+            $insert->bindValue(':type', 'check_in', SQLITE3_TEXT);
+            $insert->bindValue(':body_text', $bodyText, SQLITE3_TEXT);
+            $insert->bindValue(':image_url', $imageUrl, SQLITE3_TEXT);
+            $insert->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
+            if ($insert->execute()) {
+                $postId = (int) $db->lastInsertRowID();
+                $subscriberStatement = $db->prepare('SELECT user_id FROM subscriptions WHERE commitment_id = :commitment_id');
+                $subscriberStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                $subscriberResult = $subscriberStatement->execute();
+                $insertNotification = $db->prepare('INSERT INTO notifications (recipient_user_id, commitment_id, post_id, created_at, read_at) VALUES (:recipient_user_id, :commitment_id, :post_id, :created_at, NULL)');
+                while ($subscriber = $subscriberResult->fetchArray(SQLITE3_ASSOC)) {
+                    $recipientId = (int) $subscriber['user_id'];
+                    if ($recipientId === (int) $currentUser['id']) {
+                        continue;
+                    }
+                    $insertNotification->bindValue(':recipient_user_id', $recipientId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':post_id', $postId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
+                    $insertNotification->execute();
+                }
+                redirect_with_message('index.php?r=commitment&id=' . $commitmentId, 'Check-in published.');
+            } else {
+                $errors[] = 'Unable to create check-in.';
+            }
+        }
+    }
+
+    if ($action === 'create_comment') {
+        $commitmentId = (int) ($_POST['commitment_id'] ?? 0);
+        $bodyText = trim($_POST['body_text'] ?? '');
+
+        if ($commitmentId <= 0) {
+            $errors[] = 'Invalid commitment.';
+        }
+        if ($commitmentId > 0) {
+            $isOwner = is_owner($db, $currentUser['id'], $commitmentId);
+            $isSubscribed = $isOwner || is_subscribed($db, $currentUser['id'], $commitmentId);
+            if (!$isSubscribed) {
+                $errors[] = 'Only subscribers can comment.';
+            }
+        }
+        if ($bodyText === '') {
             $errors[] = 'Please add a comment.';
         }
 
@@ -217,33 +262,14 @@ if ($currentUser) {
             $insert = $db->prepare('INSERT INTO posts (commitment_id, author_user_id, type, body_text, image_url, created_at) VALUES (:commitment_id, :author_user_id, :type, :body_text, :image_url, :created_at)');
             $insert->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
             $insert->bindValue(':author_user_id', $currentUser['id'], SQLITE3_INTEGER);
-            $insert->bindValue(':type', $type, SQLITE3_TEXT);
+            $insert->bindValue(':type', 'comment', SQLITE3_TEXT);
             $insert->bindValue(':body_text', $bodyText, SQLITE3_TEXT);
-            $insert->bindValue(':image_url', $imageUrl, SQLITE3_TEXT);
+            $insert->bindValue(':image_url', '', SQLITE3_TEXT);
             $insert->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
             if ($insert->execute()) {
-                $postId = (int) $db->lastInsertRowID();
-                if ($type === 'check_in') {
-                    $subscriberStatement = $db->prepare('SELECT user_id FROM subscriptions WHERE commitment_id = :commitment_id');
-                    $subscriberStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
-                    $subscriberResult = $subscriberStatement->execute();
-                    $insertNotification = $db->prepare('INSERT INTO notifications (recipient_user_id, commitment_id, post_id, created_at, read_at) VALUES (:recipient_user_id, :commitment_id, :post_id, :created_at, NULL)');
-                    while ($subscriber = $subscriberResult->fetchArray(SQLITE3_ASSOC)) {
-                        $recipientId = (int) $subscriber['user_id'];
-                        if ($recipientId === (int) $currentUser['id']) {
-                            continue;
-                        }
-                        $insertNotification->bindValue(':recipient_user_id', $recipientId, SQLITE3_INTEGER);
-                        $insertNotification->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
-                        $insertNotification->bindValue(':post_id', $postId, SQLITE3_INTEGER);
-                        $insertNotification->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
-                        $insertNotification->execute();
-                    }
-                    // TODO: Comment notifications could be added later.
-                }
-                redirect_with_message('index.php?r=commitment&id=' . $commitmentId, 'Post published.');
+                redirect_with_message('index.php?r=commitment&id=' . $commitmentId, 'Comment published.');
             } else {
-                $errors[] = 'Unable to create post.';
+                $errors[] = 'Unable to add comment.';
             }
         }
     }
@@ -517,27 +543,43 @@ include __DIR__ . '/auth_header.php';
 
       <section class="surface">
         <h2 class="h5">Create a post</h2>
-        <p class="hint">Anyone can post a check-in or comment. Only owner check-ins are evaluated.</p>
-        <form method="post" class="d-grid gap-3">
-          <input type="hidden" name="action" value="create_post">
-          <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-          <div>
-            <label class="form-label" for="post-type">Type</label>
-            <select class="form-select" id="post-type" name="type" required>
-              <option value="check_in">Check-in</option>
-              <option value="comment">Comment</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label" for="post-text">Text</label>
-            <textarea class="form-control" id="post-text" name="body_text" rows="3"></textarea>
-          </div>
-          <div>
-            <label class="form-label" for="post-image">Image URL (for check-ins)</label>
-            <input class="form-control" type="url" id="post-image" name="image_url">
-          </div>
-          <button type="submit" class="btn btn-neutral">Post update</button>
-        </form>
+        <p class="hint">Only owner check-ins are evaluated. Subscribers can add comments.</p>
+        <?php if ($isOwner): ?>
+          <form method="post" class="d-grid gap-3 mb-4">
+            <input type="hidden" name="action" value="create_check_in">
+            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+            <div>
+              <label class="form-label" for="checkin-text">Text</label>
+              <textarea class="form-control" id="checkin-text" name="body_text" rows="3"></textarea>
+            </div>
+            <div>
+              <label class="form-label" for="checkin-image">Image URL</label>
+              <input class="form-control" type="url" id="checkin-image" name="image_url">
+            </div>
+            <button type="submit" class="btn btn-neutral">Post check-in</button>
+          </form>
+          <form method="post" class="d-grid gap-3">
+            <input type="hidden" name="action" value="create_comment">
+            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+            <div>
+              <label class="form-label" for="owner-comment">Update</label>
+              <textarea class="form-control" id="owner-comment" name="body_text" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-outline-dark">Post update</button>
+          </form>
+        <?php elseif ($isSubscribed): ?>
+          <form method="post" class="d-grid gap-3">
+            <input type="hidden" name="action" value="create_comment">
+            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+            <div>
+              <label class="form-label" for="subscriber-comment">Comment</label>
+              <textarea class="form-control" id="subscriber-comment" name="body_text" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-neutral">Add comment</button>
+          </form>
+        <?php else: ?>
+          <p class="hint mb-0">Subscribe to add a comment.</p>
+        <?php endif; ?>
       </section>
 
       <section class="surface">
