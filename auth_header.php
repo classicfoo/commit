@@ -45,13 +45,6 @@ $currentUser = $currentUser ?? null;
         padding: 0 24px 64px;
         background: transparent;
       }
-      .brand-mark {
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        font-weight: 600;
-        font-size: 0.85rem;
-        color: #6b7280;
-      }
       .surface {
         border: 1px solid #e5e7eb;
         border-radius: 16px;
@@ -192,7 +185,6 @@ $currentUser = $currentUser ?? null;
     <div class="app-shell">
       <?php if ($showPageHeader): ?>
         <header class="d-flex flex-column gap-2 mb-4">
-          <span class="brand-mark">commit</span>
           <h1 class="h3 mb-0"><?php echo htmlspecialchars($pageHeading, ENT_QUOTES, 'UTF-8'); ?></h1>
           <?php if ($pageHint !== ''): ?>
             <p class="hint"><?php echo htmlspecialchars($pageHint, ENT_QUOTES, 'UTF-8'); ?></p>
