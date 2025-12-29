@@ -601,27 +601,28 @@ include __DIR__ . '/auth_header.php';
             <h2 class="h5">Create a post</h2>
             <p class="hint">Only owner check-ins are evaluated. Subscribers can add comments.</p>
             <?php if ($isOwner): ?>
-              <form method="post" class="d-grid gap-3 mb-4">
-                <input type="hidden" name="action" value="create_check_in">
+              <form method="post" class="d-grid gap-3">
+                <input type="hidden" name="action" id="post-action" value="create_check_in">
                 <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
                 <div>
-                  <label class="form-label" for="checkin-text">Text</label>
-                  <textarea class="form-control" id="checkin-text" name="body_text" rows="3"></textarea>
+                  <label class="form-label d-block" for="post-type-checkin">Post type</label>
+                  <div class="btn-group" role="group" aria-label="Choose post type">
+                    <input type="radio" class="btn-check" name="post_type" id="post-type-checkin" value="checkin" autocomplete="off" checked>
+                    <label class="btn btn-outline-dark" for="post-type-checkin">Check-in</label>
+                    <input type="radio" class="btn-check" name="post_type" id="post-type-update" value="update" autocomplete="off">
+                    <label class="btn btn-outline-dark" for="post-type-update">Update</label>
+                  </div>
+                  <p class="hint mb-0" id="post-type-hint" data-checkin-hint="Check-ins count toward requirements." data-update-hint="Updates do not count toward requirements.">Check-ins count toward requirements.</p>
                 </div>
                 <div>
+                  <label class="form-label" for="checkin-text" id="post-text-label" data-checkin-label="Check-in notes" data-update-label="Update">Check-in notes</label>
+                  <textarea class="form-control" id="checkin-text" name="body_text" rows="3"></textarea>
+                </div>
+                <div id="post-image-field">
                   <label class="form-label" for="checkin-image">Image URL</label>
                   <input class="form-control" type="url" id="checkin-image" name="image_url">
                 </div>
-                <button type="submit" class="btn btn-neutral">Post check-in</button>
-              </form>
-              <form method="post" class="d-grid gap-3">
-                <input type="hidden" name="action" value="create_comment">
-                <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-                <div>
-                  <label class="form-label" for="owner-comment">Update</label>
-                  <textarea class="form-control" id="owner-comment" name="body_text" rows="3"></textarea>
-                </div>
-                <button type="submit" class="btn btn-outline-dark">Post update</button>
+                <button type="submit" class="btn btn-neutral" id="post-submit" data-checkin-label="Post check-in" data-update-label="Post update">Post check-in</button>
               </form>
             <?php elseif ($isSubscribed): ?>
               <form method="post" class="d-grid gap-3">
@@ -696,6 +697,42 @@ include __DIR__ . '/auth_header.php';
   <?php endif; ?>
 <?php endif; ?>
 
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const postAction = document.getElementById('post-action');
+    const postTypeCheckin = document.getElementById('post-type-checkin');
+    const postTypeUpdate = document.getElementById('post-type-update');
+    const postTextLabel = document.getElementById('post-text-label');
+    const postImageField = document.getElementById('post-image-field');
+    const postSubmit = document.getElementById('post-submit');
+    const postTypeHint = document.getElementById('post-type-hint');
+
+    if (!postAction || !postTypeCheckin || !postTypeUpdate) {
+      return;
+    }
+
+    const updatePostForm = () => {
+      const isCheckin = postTypeCheckin.checked;
+      postAction.value = isCheckin ? 'create_check_in' : 'create_comment';
+      if (postTextLabel) {
+        postTextLabel.textContent = isCheckin ? postTextLabel.dataset.checkinLabel : postTextLabel.dataset.updateLabel;
+      }
+      if (postTypeHint) {
+        postTypeHint.textContent = isCheckin ? postTypeHint.dataset.checkinHint : postTypeHint.dataset.updateHint;
+      }
+      if (postImageField) {
+        postImageField.style.display = isCheckin ? '' : 'none';
+      }
+      if (postSubmit) {
+        postSubmit.textContent = isCheckin ? postSubmit.dataset.checkinLabel : postSubmit.dataset.updateLabel;
+      }
+    };
+
+    postTypeCheckin.addEventListener('change', updatePostForm);
+    postTypeUpdate.addEventListener('change', updatePostForm);
+    updatePostForm();
+  });
+</script>
 <?php
 include __DIR__ . '/auth_footer.php';
 ?>
