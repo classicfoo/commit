@@ -156,45 +156,39 @@ $currentUser = $currentUser ?? null;
     </style>
   </head>
   <body>
-    <nav class="app-nav">
-      <div class="container-fluid px-4 py-3 d-flex align-items-center justify-content-between">
-        <span class="app-brand">commit</span>
-        <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#mainMenu" aria-controls="mainMenu">
-          <span class="visually-hidden">Open menu</span>
-          ☰
-        </button>
-      </div>
-    </nav>
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="mainMenu" aria-labelledby="mainMenuLabel">
-      <div class="offcanvas-header">
-        <h5 class="offcanvas-title" id="mainMenuLabel">Menu</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-      </div>
-      <div class="offcanvas-body">
-        <div class="menu-panel">
-          <p class="menu-greeting">
-            <?php if ($currentUser): ?>
-              Hello, <?php echo htmlspecialchars($currentUser['email'], ENT_QUOTES, 'UTF-8'); ?>
-            <?php else: ?>
-              Hello
-            <?php endif; ?>
-          </p>
-          <div class="menu-card">
-            <?php if ($currentUser): ?>
+    <?php if ($currentUser): ?>
+      <nav class="app-nav">
+        <div class="container-fluid px-4 py-3 d-flex align-items-center justify-content-between">
+          <span class="app-brand">commit</span>
+          <button class="btn btn-outline-dark btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#mainMenu" aria-controls="mainMenu">
+            <span class="visually-hidden">Open menu</span>
+            ☰
+          </button>
+        </div>
+      </nav>
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="mainMenu" aria-labelledby="mainMenuLabel">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="mainMenuLabel">Menu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <div class="menu-panel">
+            <p class="menu-greeting">
+              Hello, <?php echo htmlspecialchars($currentUser['first_name'], ENT_QUOTES, 'UTF-8'); ?>
+            </p>
+            <div class="menu-card">
               <a class="menu-item" href="index.php?r=commitments">Commitments</a>
               <a class="menu-item" href="index.php?r=notifications">Notifications</a>
               <form method="post" class="menu-action">
                 <input type="hidden" name="action" value="logout">
                 <button type="submit">Logout</button>
               </form>
-            <?php else: ?>
-              <div class="menu-item">Log in to continue</div>
-            <?php endif; ?>
+            </div>
+            <p class="menu-footer">All changes saved</p>
           </div>
-          <p class="menu-footer">All changes saved</p>
         </div>
       </div>
-    </div>
+    <?php endif; ?>
     <div class="app-shell">
       <?php if ($showPageHeader): ?>
         <header class="d-flex flex-column gap-2 mb-4">

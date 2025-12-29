@@ -291,8 +291,8 @@ if ($message !== '' && $successMessage === '') {
 }
 
 $pageTitle = 'Commit';
-$pageHeading = 'Welcome back';
-$pageHint = 'Sign in to continue to your account.';
+$pageHeading = 'Sign in to continue';
+$pageHint = '';
 $showPageHeader = true;
 
 if ($currentUser) {
@@ -322,15 +322,13 @@ include __DIR__ . '/auth_header.php';
 <?php endif; ?>
 
 <?php if ($successMessage): ?>
-  <div class="alert alert-success" role="alert">
+  <div class="alert alert-success" role="alert" data-auto-dismiss="true">
     <?php echo htmlspecialchars($successMessage, ENT_QUOTES, 'UTF-8'); ?>
   </div>
 <?php endif; ?>
 
 <?php if (!$currentUser): ?>
   <section class="surface">
-    <h2 class="h5">Log in</h2>
-    <p class="hint">Welcome back. Enter your credentials.</p>
     <form method="post" class="d-grid gap-3">
       <input type="hidden" name="action" value="login">
       <div>
@@ -343,8 +341,6 @@ include __DIR__ . '/auth_header.php';
       </div>
       <button type="submit" class="btn btn-neutral">Sign in</button>
     </form>
-    <div class="divider"></div>
-    <p class="hint mb-0">Don’t have an account? <a href="register.php">Create one here</a>.</p>
   </section>
 <?php else: ?>
   <?php if ($route === 'commitments'): ?>
