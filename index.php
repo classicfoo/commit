@@ -17,7 +17,7 @@ if ($action === 'login') {
 
 $currentUser = current_user();
 
-$pageTitle = 'testing';
+$pageTitle = 'Commit';
 $pageHeading = 'Welcome back';
 $pageHint = 'Sign in to continue to your account.';
 
