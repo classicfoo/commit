@@ -47,6 +47,85 @@ function format_owner_name(?string $firstName, ?string $lastName): string
     return $name !== '' ? $name : 'Unknown owner';
 }
 
+function format_person_initials(?string $firstName, ?string $lastName): string
+{
+    $firstInitial = $firstName ? mb_substr(trim($firstName), 0, 1) : '';
+    $lastInitial = $lastName ? mb_substr(trim($lastName), 0, 1) : '';
+    $initials = strtoupper($firstInitial . $lastInitial);
+    return $initials !== '' ? $initials : 'U';
+}
+
+function calculate_people_match_score(array $person, string $query): int
+{
+    if ($query === '') {
+        return 0;
+    }
+    $needle = mb_strtolower($query);
+    $score = 0;
+    $name = trim(($person['first_name'] ?? '') . ' ' . ($person['last_name'] ?? ''));
+    $role = $person['role'] ?? '';
+    $org = $person['org'] ?? '';
+    $team = $person['team'] ?? '';
+    $location = $person['location'] ?? '';
+
+    if ($name !== '' && mb_stripos($name, $needle) !== false) {
+        $score += 5;
+    }
+    if ($role !== '' && mb_stripos($role, $needle) !== false) {
+        $score += 4;
+    }
+    if ($org !== '' && mb_stripos($org, $needle) !== false) {
+        $score += 3;
+    }
+    if ($team !== '' && mb_stripos($team, $needle) !== false) {
+        $score += 2;
+    }
+    if ($location !== '' && mb_stripos($location, $needle) !== false) {
+        $score += 1;
+    }
+
+    return $score;
+}
+
+function fetch_commitments_for_person(SQLite3 $db, int $personId, string $query, array $filters): array
+{
+    $sql = 'SELECT id, title, description, category, start_date, end_date, created_at FROM commitments WHERE owner_user_id = :owner_user_id';
+    if ($query !== '') {
+        $sql .= ' AND (title LIKE :query OR description LIKE :query OR category LIKE :query)';
+    }
+    if ($filters['category'] !== '') {
+        $sql .= ' AND category LIKE :category';
+    }
+    if ($filters['start_date'] !== '') {
+        $sql .= ' AND date(COALESCE(start_date, created_at)) >= date(:start_date)';
+    }
+    if ($filters['end_date'] !== '') {
+        $sql .= ' AND date(COALESCE(end_date, created_at)) <= date(:end_date)';
+    }
+    $sql .= ' ORDER BY created_at DESC';
+
+    $statement = $db->prepare($sql);
+    $statement->bindValue(':owner_user_id', $personId, SQLITE3_INTEGER);
+    if ($query !== '') {
+        $statement->bindValue(':query', '%' . $query . '%', SQLITE3_TEXT);
+    }
+    if ($filters['category'] !== '') {
+        $statement->bindValue(':category', '%' . $filters['category'] . '%', SQLITE3_TEXT);
+    }
+    if ($filters['start_date'] !== '') {
+        $statement->bindValue(':start_date', $filters['start_date'], SQLITE3_TEXT);
+    }
+    if ($filters['end_date'] !== '') {
+        $statement->bindValue(':end_date', $filters['end_date'], SQLITE3_TEXT);
+    }
+    $result = $statement->execute();
+    $commitments = [];
+    while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+        $commitments[] = $row;
+    }
+    return $commitments;
+}
+
 function evaluate_commitment_status(SQLite3 $db, int $commitmentId, int $ownerUserId): array
 {
     $requirements = fetch_commitment_requirements($db, $commitmentId);
@@ -127,6 +206,9 @@ if ($currentUser) {
     if ($action === 'create_commitment') {
         $title = trim($_POST['title'] ?? '');
         $description = trim($_POST['description'] ?? '');
+        $category = trim($_POST['category'] ?? '');
+        $startDate = trim($_POST['start_date'] ?? '');
+        $endDate = trim($_POST['end_date'] ?? '');
         if ($title === '') {
             $errors[] = 'Commitment title is required.';
         }
@@ -134,10 +216,13 @@ if ($currentUser) {
             $errors[] = 'Commitment description is required.';
         }
         if (!$errors) {
-            $insert = $db->prepare('INSERT INTO commitments (owner_user_id, title, description, created_at) VALUES (:owner_user_id, :title, :description, :created_at)');
+            $insert = $db->prepare('INSERT INTO commitments (owner_user_id, title, description, category, start_date, end_date, created_at) VALUES (:owner_user_id, :title, :description, :category, :start_date, :end_date, :created_at)');
             $insert->bindValue(':owner_user_id', $currentUser['id'], SQLITE3_INTEGER);
             $insert->bindValue(':title', $title, SQLITE3_TEXT);
             $insert->bindValue(':description', $description, SQLITE3_TEXT);
+            $insert->bindValue(':category', $category !== '' ? $category : null, SQLITE3_TEXT);
+            $insert->bindValue(':start_date', $startDate !== '' ? $startDate : null, SQLITE3_TEXT);
+            $insert->bindValue(':end_date', $endDate !== '' ? $endDate : null, SQLITE3_TEXT);
             $insert->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
             if ($insert->execute()) {
                 $commitmentId = (int) $db->lastInsertRowID();
@@ -363,6 +448,12 @@ if ($currentUser) {
     if ($route === 'commitment') {
         $pageHeading = 'Commitment details';
         $pageHint = 'Track requirements, status, and activity.';
+    } elseif ($route === 'person') {
+        $pageHeading = 'Person profile';
+        $pageHint = 'Explore commitments owned by this person.';
+    } elseif ($route === 'explore') {
+        $pageHeading = 'Explore people';
+        $pageHint = 'Search for people and the commitments they lead.';
     } elseif ($route === 'notifications') {
         $pageHeading = 'Notifications';
         $pageHint = 'Recent check-ins from your subscriptions.';
@@ -461,11 +552,263 @@ include __DIR__ . '/auth_header.php';
             <input class="form-control" type="text" id="commitment-title" name="title" required>
           </div>
           <div>
+            <label class="form-label" for="commitment-category">Category</label>
+            <input class="form-control" type="text" id="commitment-category" name="category" placeholder="Mentorship, Q3 Roadmap">
+          </div>
+          <div>
             <label class="form-label" for="commitment-description">Description</label>
             <textarea class="form-control" id="commitment-description" name="description" rows="3" required></textarea>
           </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="commitment-start-date">Start date</label>
+              <input class="form-control" type="date" id="commitment-start-date" name="start_date">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="commitment-end-date">End date</label>
+              <input class="form-control" type="date" id="commitment-end-date" name="end_date">
+            </div>
+          </div>
           <button type="submit" class="btn btn-neutral">Create commitment</button>
         </form>
+      </section>
+    <?php endif; ?>
+  <?php elseif ($route === 'explore'): ?>
+    <?php
+      $searchQuery = trim($_GET['q'] ?? '');
+      $peopleFilters = [
+          'org' => trim($_GET['org'] ?? ''),
+          'team' => trim($_GET['team'] ?? ''),
+          'location' => trim($_GET['location'] ?? ''),
+          'role' => trim($_GET['role'] ?? ''),
+      ];
+      $commitmentFilters = [
+          'category' => trim($_GET['category'] ?? ''),
+          'start_date' => trim($_GET['start_date'] ?? ''),
+          'end_date' => trim($_GET['end_date'] ?? ''),
+      ];
+
+      $peopleStatement = $db->prepare('SELECT id, first_name, last_name, email, org, team, location, role FROM users WHERE (:org = "" OR org LIKE :org_like) AND (:team = "" OR team LIKE :team_like) AND (:location = "" OR location LIKE :location_like) AND (:role = "" OR role LIKE :role_like) ORDER BY last_name, first_name');
+      $peopleStatement->bindValue(':org', $peopleFilters['org'], SQLITE3_TEXT);
+      $peopleStatement->bindValue(':org_like', '%' . $peopleFilters['org'] . '%', SQLITE3_TEXT);
+      $peopleStatement->bindValue(':team', $peopleFilters['team'], SQLITE3_TEXT);
+      $peopleStatement->bindValue(':team_like', '%' . $peopleFilters['team'] . '%', SQLITE3_TEXT);
+      $peopleStatement->bindValue(':location', $peopleFilters['location'], SQLITE3_TEXT);
+      $peopleStatement->bindValue(':location_like', '%' . $peopleFilters['location'] . '%', SQLITE3_TEXT);
+      $peopleStatement->bindValue(':role', $peopleFilters['role'], SQLITE3_TEXT);
+      $peopleStatement->bindValue(':role_like', '%' . $peopleFilters['role'] . '%', SQLITE3_TEXT);
+      $peopleResult = $peopleStatement->execute();
+      $peopleMatches = [];
+      while ($person = $peopleResult->fetchArray(SQLITE3_ASSOC)) {
+          $commitments = fetch_commitments_for_person($db, (int) $person['id'], $searchQuery, $commitmentFilters);
+          $peopleScore = calculate_people_match_score($person, $searchQuery);
+          $hasCommitments = count($commitments) > 0;
+          $hasFilters = array_filter($commitmentFilters) || array_filter($peopleFilters);
+          $includePerson = $searchQuery === ''
+              ? (!$hasFilters || $hasCommitments)
+              : ($peopleScore > 0 || $hasCommitments);
+          if (!$includePerson) {
+              continue;
+          }
+          $person['commitments'] = $commitments;
+          $person['people_score'] = $peopleScore;
+          $peopleMatches[] = $person;
+      }
+
+      usort($peopleMatches, function (array $left, array $right): int {
+          if ($left['people_score'] === $right['people_score']) {
+              return strcasecmp(($left['last_name'] ?? '') . ($left['first_name'] ?? ''), ($right['last_name'] ?? '') . ($right['first_name'] ?? ''));
+          }
+          return $right['people_score'] <=> $left['people_score'];
+      });
+    ?>
+    <section class="surface">
+      <form method="get" class="d-grid gap-4">
+        <input type="hidden" name="r" value="explore">
+        <div>
+          <label class="form-label" for="explore-search">Search people and commitments</label>
+          <input class="form-control" type="search" id="explore-search" name="q" placeholder="Search by name, role, org, or commitment" value="<?php echo htmlspecialchars($searchQuery, ENT_QUOTES, 'UTF-8'); ?>">
+        </div>
+        <div>
+          <p class="text-uppercase text-muted fw-semibold small mb-2">People filters</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="filter-org">Organization</label>
+              <input class="form-control" type="text" id="filter-org" name="org" value="<?php echo htmlspecialchars($peopleFilters['org'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="filter-team">Team</label>
+              <input class="form-control" type="text" id="filter-team" name="team" value="<?php echo htmlspecialchars($peopleFilters['team'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="filter-location">Location</label>
+              <input class="form-control" type="text" id="filter-location" name="location" value="<?php echo htmlspecialchars($peopleFilters['location'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="filter-role">Role</label>
+              <input class="form-control" type="text" id="filter-role" name="role" value="<?php echo htmlspecialchars($peopleFilters['role'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="text-uppercase text-muted fw-semibold small mb-2">Commitment filters</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="filter-category">Category</label>
+              <input class="form-control" type="text" id="filter-category" name="category" value="<?php echo htmlspecialchars($commitmentFilters['category'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="filter-start-date">Start date</label>
+              <input class="form-control" type="date" id="filter-start-date" name="start_date" value="<?php echo htmlspecialchars($commitmentFilters['start_date'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="filter-end-date">End date</label>
+              <input class="form-control" type="date" id="filter-end-date" name="end_date" value="<?php echo htmlspecialchars($commitmentFilters['end_date'], ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="submit" class="btn btn-neutral">Update results</button>
+          <a class="btn btn-outline-dark" href="index.php?r=explore">Reset</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="surface">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h2 class="h5 mb-1">People-first results</h2>
+          <p class="hint mb-0">People matches are prioritized, with commitments nested under each person.</p>
+        </div>
+        <span class="status-pill"><?php echo count($peopleMatches); ?> people</span>
+      </div>
+      <?php if (!$peopleMatches): ?>
+        <p class="hint mb-0">No matches yet. Try adjusting your people or commitment filters.</p>
+      <?php else: ?>
+        <div class="d-grid gap-3">
+          <?php foreach ($peopleMatches as $person): ?>
+            <?php
+              $commitments = $person['commitments'];
+              $commitmentCount = count($commitments);
+              $commitmentPreview = array_slice($commitments, 0, 3);
+              $personName = trim(($person['first_name'] ?? '') . ' ' . ($person['last_name'] ?? ''));
+              $personName = $personName !== '' ? $personName : 'Unknown person';
+              $personMeta = trim(($person['role'] ?? '') . ($person['org'] ? ' · ' . $person['org'] : ''));
+              $personDetails = array_filter([$person['team'] ?? '', $person['location'] ?? '']);
+            ?>
+            <div class="person-card">
+              <div class="d-flex align-items-start justify-content-between gap-3">
+                <div class="d-flex gap-3">
+                  <div class="person-avatar" aria-hidden="true">
+                    <?php echo htmlspecialchars(format_person_initials($person['first_name'] ?? '', $person['last_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                  </div>
+                  <div>
+                    <h3 class="h6 mb-1"><?php echo htmlspecialchars($personName, ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <?php if ($personMeta !== ''): ?>
+                      <p class="hint mb-1"><?php echo htmlspecialchars($personMeta, ENT_QUOTES, 'UTF-8'); ?></p>
+                    <?php endif; ?>
+                    <?php if ($personDetails): ?>
+                      <p class="person-subtext mb-2"><?php echo htmlspecialchars(implode(' · ', $personDetails), ENT_QUOTES, 'UTF-8'); ?></p>
+                    <?php endif; ?>
+                    <div class="commitment-summary">
+                      <?php if ($commitmentCount > 0): ?>
+                        <p class="mb-2"><strong><?php echo $commitmentCount; ?> commitment<?php echo $commitmentCount === 1 ? '' : 's'; ?>:</strong></p>
+                        <div class="commitment-chips">
+                          <?php foreach ($commitmentPreview as $commitment): ?>
+                            <span class="commitment-chip"><?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                          <?php endforeach; ?>
+                          <?php if ($commitmentCount > count($commitmentPreview)): ?>
+                            <span class="commitment-chip commitment-chip-muted">+<?php echo $commitmentCount - count($commitmentPreview); ?> more</span>
+                          <?php endif; ?>
+                        </div>
+                      <?php else: ?>
+                        <p class="hint mb-0">No commitments match the current filters.</p>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                </div>
+                <div class="d-flex flex-column align-items-end gap-2">
+                  <button type="button" class="btn btn-outline-dark btn-sm">Follow</button>
+                  <a class="btn btn-link p-0 text-decoration-none" href="index.php?r=person&id=<?php echo (int) $person['id']; ?>">View all commitments</a>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+    </section>
+  <?php elseif ($route === 'person'): ?>
+    <?php
+      $personId = (int) ($_GET['id'] ?? 0);
+      $personStatement = $db->prepare('SELECT id, first_name, last_name, email, org, team, location, role FROM users WHERE id = :id');
+      $personStatement->bindValue(':id', $personId, SQLITE3_INTEGER);
+      $personResult = $personStatement->execute();
+      $person = $personResult->fetchArray(SQLITE3_ASSOC);
+    ?>
+    <?php if (!$person): ?>
+      <section class="surface">
+        <h2 class="h5">Person not found</h2>
+        <p class="hint">Return to Explore to choose another person.</p>
+        <a class="btn btn-outline-dark" href="index.php?r=explore">Back to Explore</a>
+      </section>
+    <?php else: ?>
+      <?php
+        $personCommitments = fetch_commitments_for_person($db, (int) $person['id'], '', [
+            'category' => '',
+            'start_date' => '',
+            'end_date' => '',
+        ]);
+        $personName = trim(($person['first_name'] ?? '') . ' ' . ($person['last_name'] ?? ''));
+        $personName = $personName !== '' ? $personName : 'Unknown person';
+        $personMeta = trim(($person['role'] ?? '') . ($person['org'] ? ' · ' . $person['org'] : ''));
+        $personDetails = array_filter([$person['team'] ?? '', $person['location'] ?? '']);
+      ?>
+      <section class="surface">
+        <div class="d-flex align-items-start justify-content-between gap-3">
+          <div class="d-flex gap-3">
+            <div class="person-avatar person-avatar-lg" aria-hidden="true">
+              <?php echo htmlspecialchars(format_person_initials($person['first_name'] ?? '', $person['last_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+            </div>
+            <div>
+              <h2 class="h5 mb-1"><?php echo htmlspecialchars($personName, ENT_QUOTES, 'UTF-8'); ?></h2>
+              <?php if ($personMeta !== ''): ?>
+                <p class="hint mb-1"><?php echo htmlspecialchars($personMeta, ENT_QUOTES, 'UTF-8'); ?></p>
+              <?php endif; ?>
+              <?php if ($personDetails): ?>
+                <p class="person-subtext mb-0"><?php echo htmlspecialchars(implode(' · ', $personDetails), ENT_QUOTES, 'UTF-8'); ?></p>
+              <?php endif; ?>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline-dark btn-sm">Follow</button>
+        </div>
+        <div class="divider"></div>
+        <h3 class="h6">Commitments</h3>
+        <?php if (!$personCommitments): ?>
+          <p class="hint mb-0">No commitments yet.</p>
+        <?php else: ?>
+          <div class="d-grid gap-3">
+            <?php foreach ($personCommitments as $commitment): ?>
+              <div class="border rounded-3 p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <h3 class="h6 mb-1">
+                      <a href="index.php?r=commitment&id=<?php echo (int) $commitment['id']; ?>">
+                        <?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?>
+                      </a>
+                    </h3>
+                    <?php if (!empty($commitment['category'])): ?>
+                      <p class="hint mb-2">Category: <?php echo htmlspecialchars($commitment['category'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    <?php endif; ?>
+                    <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
+                  </div>
+                  <span class="status-pill">Commitment</span>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+        <div class="divider"></div>
+        <a class="btn btn-outline-dark" href="index.php?r=explore">Back to Explore</a>
       </section>
     <?php endif; ?>
   <?php elseif ($route === 'commitment'): ?>

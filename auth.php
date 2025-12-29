@@ -30,6 +30,18 @@ if (!in_array('first_name', $columns, true)) {
 if (!in_array('last_name', $columns, true)) {
     $db->exec('ALTER TABLE users ADD COLUMN last_name TEXT NOT NULL DEFAULT ""');
 }
+if (!in_array('org', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN org TEXT');
+}
+if (!in_array('team', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN team TEXT');
+}
+if (!in_array('location', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN location TEXT');
+}
+if (!in_array('role', $columns, true)) {
+    $db->exec('ALTER TABLE users ADD COLUMN role TEXT');
+}
 
 $commitmentTableInfoStatement = $db->prepare('PRAGMA table_info(commitments)');
 $commitmentTableInfo = $commitmentTableInfoStatement->execute();
@@ -48,6 +60,9 @@ if (!in_array('end_date', $commitmentColumns, true)) {
 }
 if (!in_array('post_frequency', $commitmentColumns, true)) {
     $db->exec('ALTER TABLE commitments ADD COLUMN post_frequency TEXT');
+}
+if (!in_array('category', $commitmentColumns, true)) {
+    $db->exec('ALTER TABLE commitments ADD COLUMN category TEXT');
 }
 $db->exec('UPDATE commitments SET owner_id = owner_user_id WHERE owner_id IS NULL');
 
@@ -69,15 +84,37 @@ $userCountResult = $userCountStatement->execute();
 $userCountRow = $userCountResult->fetchArray(SQLITE3_ASSOC);
 if ($userCountRow && (int) $userCountRow['count'] === 0) {
     $seedUsers = [
-        ['email' => 'demo_owner@commit.local', 'first_name' => 'Demo', 'last_name' => 'Owner', 'password' => 'password123'],
-        ['email' => 'demo_supporter@commit.local', 'first_name' => 'Demo', 'last_name' => 'Supporter', 'password' => 'password123'],
+        [
+            'email' => 'demo_owner@commit.local',
+            'first_name' => 'Demo',
+            'last_name' => 'Owner',
+            'password' => 'password123',
+            'org' => 'Northwind Labs',
+            'team' => 'Product',
+            'location' => 'Seattle, WA',
+            'role' => 'Program Lead',
+        ],
+        [
+            'email' => 'demo_supporter@commit.local',
+            'first_name' => 'Demo',
+            'last_name' => 'Supporter',
+            'password' => 'password123',
+            'org' => 'Northwind Labs',
+            'team' => 'Community',
+            'location' => 'Austin, TX',
+            'role' => 'Community Manager',
+        ],
     ];
 
-    $insertUser = $db->prepare('INSERT INTO users (email, first_name, last_name, password_hash, created_at) VALUES (:email, :first_name, :last_name, :hash, :created_at)');
+    $insertUser = $db->prepare('INSERT INTO users (email, first_name, last_name, org, team, location, role, password_hash, created_at) VALUES (:email, :first_name, :last_name, :org, :team, :location, :role, :hash, :created_at)');
     foreach ($seedUsers as $seedUser) {
         $insertUser->bindValue(':email', $seedUser['email'], SQLITE3_TEXT);
         $insertUser->bindValue(':first_name', $seedUser['first_name'], SQLITE3_TEXT);
         $insertUser->bindValue(':last_name', $seedUser['last_name'], SQLITE3_TEXT);
+        $insertUser->bindValue(':org', $seedUser['org'], SQLITE3_TEXT);
+        $insertUser->bindValue(':team', $seedUser['team'], SQLITE3_TEXT);
+        $insertUser->bindValue(':location', $seedUser['location'], SQLITE3_TEXT);
+        $insertUser->bindValue(':role', $seedUser['role'], SQLITE3_TEXT);
         $insertUser->bindValue(':hash', password_hash($seedUser['password'], PASSWORD_DEFAULT), SQLITE3_TEXT);
         $insertUser->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
         $insertUser->execute();
@@ -95,10 +132,13 @@ if ($commitmentCountRow && (int) $commitmentCountRow['count'] === 0) {
     $ownerId = $owner ? (int) $owner['id'] : null;
 
     if ($ownerId) {
-        $insertCommitment = $db->prepare('INSERT INTO commitments (owner_user_id, title, description, created_at) VALUES (:owner_user_id, :title, :description, :created_at)');
+        $insertCommitment = $db->prepare('INSERT INTO commitments (owner_user_id, title, description, category, start_date, end_date, created_at) VALUES (:owner_user_id, :title, :description, :category, :start_date, :end_date, :created_at)');
         $insertCommitment->bindValue(':owner_user_id', $ownerId, SQLITE3_INTEGER);
         $insertCommitment->bindValue(':title', '30-Day Writing Streak', SQLITE3_TEXT);
         $insertCommitment->bindValue(':description', 'Post at least one daily check-in with a short update about writing progress.', SQLITE3_TEXT);
+        $insertCommitment->bindValue(':category', 'Mentorship', SQLITE3_TEXT);
+        $insertCommitment->bindValue(':start_date', date('Y-m-d', strtotime('-10 days')), SQLITE3_TEXT);
+        $insertCommitment->bindValue(':end_date', date('Y-m-d', strtotime('+20 days')), SQLITE3_TEXT);
         $insertCommitment->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
         $insertCommitment->execute();
 
