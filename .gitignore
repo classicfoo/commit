@@ -2,3 +2,8 @@
 *.db
 *.sqlite
 *.sqlite3
+
+printf "\n# Obsidian workspace state\ncommit-notes/obsidian/workspace.json\n" >> .gitignore
+git add .gitignore
+git commit -m "Ignore Obsidian workspace.json"
+
