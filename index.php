@@ -505,7 +505,6 @@ include __DIR__ . '/auth_header.php';
           <div>
             <h2 class="h5 mb-1"><?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
             <p class="hint mb-3">Owner: <?php echo htmlspecialchars($ownerName, ENT_QUOTES, 'UTF-8'); ?></p>
-            <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
           </div>
           <?php if (!$isOwner): ?>
             <form method="post">
@@ -517,125 +516,149 @@ include __DIR__ . '/auth_header.php';
             </form>
           <?php endif; ?>
         </div>
-        <div class="divider"></div>
-        <div>
-          <p class="mb-1"><strong>Status (today):</strong> <?php echo htmlspecialchars($status['overall'], ENT_QUOTES, 'UTF-8'); ?></p>
-          <?php if ($status['details']): ?>
-            <ul class="mb-0">
-              <?php foreach ($status['details'] as $detail): ?>
-                <li>
-                  <strong><?php echo htmlspecialchars($detail['label'], ENT_QUOTES, 'UTF-8'); ?>:</strong>
-                  <?php echo htmlspecialchars($detail['message'], ENT_QUOTES, 'UTF-8'); ?>
-                  (<?php echo $detail['pass'] ? 'Pass' : 'Fail'; ?>)
-                </li>
-              <?php endforeach; ?>
-            </ul>
-          <?php endif; ?>
-        </div>
-      </section>
-
-      <section class="surface">
-        <h2 class="h5">Requirements</h2>
-        <?php if ($requirements): ?>
-          <ul>
-            <?php foreach ($requirements as $requirement): ?>
-              <li>
-                <?php if ($requirement['type'] === 'post_frequency'): ?>
-                  At least <?php echo (int) ($requirement['params']['count'] ?? 1); ?> check-in(s) per day.
-                <?php elseif ($requirement['type'] === 'text_update'): ?>
-                  Check-ins must include text updates.
-                <?php elseif ($requirement['type'] === 'image_required'): ?>
-                  Check-ins must include an image URL.
-                <?php endif; ?>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        <?php else: ?>
-          <p class="hint">No requirements yet<?php echo $isOwner ? '. Add one below.' : '.'; ?></p>
-        <?php endif; ?>
-        <?php if ($isOwner): ?>
-          <div class="divider"></div>
-          <form method="post" class="d-grid gap-3">
-            <input type="hidden" name="action" value="add_requirement">
-            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+        <ul class="nav nav-tabs mt-4" id="commitmentTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="overview-tab" data-bs-toggle="tab" data-bs-target="#commitment-overview" type="button" role="tab" aria-controls="commitment-overview" aria-selected="false">
+              Overview/Status
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="requirements-tab" data-bs-toggle="tab" data-bs-target="#commitment-requirements" type="button" role="tab" aria-controls="commitment-requirements" aria-selected="false">
+              Requirements
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="checkin-tab" data-bs-toggle="tab" data-bs-target="#commitment-checkin" type="button" role="tab" aria-controls="commitment-checkin" aria-selected="true">
+              Check-in/Post
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#commitment-activity" type="button" role="tab" aria-controls="commitment-activity" aria-selected="false">
+              Activity/Recent posts
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content pt-4" id="commitmentTabsContent">
+          <div class="tab-pane fade" id="commitment-overview" role="tabpanel" aria-labelledby="overview-tab" tabindex="0">
+            <p class="mb-3"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
+            <div class="divider"></div>
             <div>
-              <label class="form-label" for="requirement-type">Requirement type</label>
-              <select class="form-select" id="requirement-type" name="type" required>
-                <option value="post_frequency">Post frequency (daily)</option>
-                <option value="text_update">Text update required</option>
-                <option value="image_required">Image URL required</option>
-              </select>
+              <p class="mb-1"><strong>Status (today):</strong> <?php echo htmlspecialchars($status['overall'], ENT_QUOTES, 'UTF-8'); ?></p>
+              <?php if ($status['details']): ?>
+                <ul class="mb-0">
+                  <?php foreach ($status['details'] as $detail): ?>
+                    <li>
+                      <strong><?php echo htmlspecialchars($detail['label'], ENT_QUOTES, 'UTF-8'); ?>:</strong>
+                      <?php echo htmlspecialchars($detail['message'], ENT_QUOTES, 'UTF-8'); ?>
+                      (<?php echo $detail['pass'] ? 'Pass' : 'Fail'; ?>)
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
             </div>
-            <div>
-              <label class="form-label" for="requirement-count">Daily check-ins (for post frequency)</label>
-              <input class="form-control" type="number" id="requirement-count" name="count" min="1" value="1">
-            </div>
-            <button type="submit" class="btn btn-neutral">Add requirement</button>
-          </form>
-        <?php endif; ?>
-      </section>
-
-      <section class="surface">
-        <h2 class="h5">Create a post</h2>
-        <p class="hint">Only owner check-ins are evaluated. Subscribers can add comments.</p>
-        <?php if ($isOwner): ?>
-          <form method="post" class="d-grid gap-3 mb-4">
-            <input type="hidden" name="action" value="create_check_in">
-            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-            <div>
-              <label class="form-label" for="checkin-text">Text</label>
-              <textarea class="form-control" id="checkin-text" name="body_text" rows="3"></textarea>
-            </div>
-            <div>
-              <label class="form-label" for="checkin-image">Image URL</label>
-              <input class="form-control" type="url" id="checkin-image" name="image_url">
-            </div>
-            <button type="submit" class="btn btn-neutral">Post check-in</button>
-          </form>
-          <form method="post" class="d-grid gap-3">
-            <input type="hidden" name="action" value="create_comment">
-            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-            <div>
-              <label class="form-label" for="owner-comment">Update</label>
-              <textarea class="form-control" id="owner-comment" name="body_text" rows="3"></textarea>
-            </div>
-            <button type="submit" class="btn btn-outline-dark">Post update</button>
-          </form>
-        <?php elseif ($isSubscribed): ?>
-          <form method="post" class="d-grid gap-3">
-            <input type="hidden" name="action" value="create_comment">
-            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-            <div>
-              <label class="form-label" for="subscriber-comment">Comment</label>
-              <textarea class="form-control" id="subscriber-comment" name="body_text" rows="3"></textarea>
-            </div>
-            <button type="submit" class="btn btn-neutral">Add comment</button>
-          </form>
-        <?php else: ?>
-          <p class="hint mb-0">Subscribe to add a comment.</p>
-        <?php endif; ?>
-      </section>
-
-      <section class="surface">
-        <h2 class="h5">Recent posts</h2>
-        <div class="d-grid gap-3">
-          <?php while ($post = $postsResult->fetchArray(SQLITE3_ASSOC)): ?>
-            <div class="border rounded-3 p-3">
-              <div class="d-flex justify-content-between align-items-start">
+          </div>
+          <div class="tab-pane fade" id="commitment-requirements" role="tabpanel" aria-labelledby="requirements-tab" tabindex="0">
+            <h2 class="h5">Requirements</h2>
+            <?php if ($requirements): ?>
+              <ul>
+                <?php foreach ($requirements as $requirement): ?>
+                  <li>
+                    <?php if ($requirement['type'] === 'post_frequency'): ?>
+                      At least <?php echo (int) ($requirement['params']['count'] ?? 1); ?> check-in(s) per day.
+                    <?php elseif ($requirement['type'] === 'text_update'): ?>
+                      Check-ins must include text updates.
+                    <?php elseif ($requirement['type'] === 'image_required'): ?>
+                      Check-ins must include an image URL.
+                    <?php endif; ?>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php else: ?>
+              <p class="hint">No requirements yet<?php echo $isOwner ? '. Add one below.' : '.'; ?></p>
+            <?php endif; ?>
+            <?php if ($isOwner): ?>
+              <div class="divider"></div>
+              <form method="post" class="d-grid gap-3">
+                <input type="hidden" name="action" value="add_requirement">
+                <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
                 <div>
-                  <p class="mb-1"><strong><?php echo htmlspecialchars($post['author_email'], ENT_QUOTES, 'UTF-8'); ?></strong> · <?php echo htmlspecialchars($post['type'], ENT_QUOTES, 'UTF-8'); ?></p>
-                  <?php if ($post['body_text'] !== ''): ?>
-                    <p class="mb-1"><?php echo nl2br(htmlspecialchars($post['body_text'], ENT_QUOTES, 'UTF-8')); ?></p>
-                  <?php endif; ?>
-                  <?php if ($post['image_url'] !== ''): ?>
-                    <p class="mb-1"><a href="<?php echo htmlspecialchars($post['image_url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noreferrer">View image</a></p>
-                  <?php endif; ?>
-                  <p class="hint mb-0">Posted <?php echo htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <label class="form-label" for="requirement-type">Requirement type</label>
+                  <select class="form-select" id="requirement-type" name="type" required>
+                    <option value="post_frequency">Post frequency (daily)</option>
+                    <option value="text_update">Text update required</option>
+                    <option value="image_required">Image URL required</option>
+                  </select>
                 </div>
-                <span class="status-pill"><?php echo htmlspecialchars($post['type'], ENT_QUOTES, 'UTF-8'); ?></span>
-              </div>
+                <div>
+                  <label class="form-label" for="requirement-count">Daily check-ins (for post frequency)</label>
+                  <input class="form-control" type="number" id="requirement-count" name="count" min="1" value="1">
+                </div>
+                <button type="submit" class="btn btn-neutral">Add requirement</button>
+              </form>
+            <?php endif; ?>
+          </div>
+          <div class="tab-pane fade show active" id="commitment-checkin" role="tabpanel" aria-labelledby="checkin-tab" tabindex="0">
+            <h2 class="h5">Create a post</h2>
+            <p class="hint">Only owner check-ins are evaluated. Subscribers can add comments.</p>
+            <?php if ($isOwner): ?>
+              <form method="post" class="d-grid gap-3 mb-4">
+                <input type="hidden" name="action" value="create_check_in">
+                <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+                <div>
+                  <label class="form-label" for="checkin-text">Text</label>
+                  <textarea class="form-control" id="checkin-text" name="body_text" rows="3"></textarea>
+                </div>
+                <div>
+                  <label class="form-label" for="checkin-image">Image URL</label>
+                  <input class="form-control" type="url" id="checkin-image" name="image_url">
+                </div>
+                <button type="submit" class="btn btn-neutral">Post check-in</button>
+              </form>
+              <form method="post" class="d-grid gap-3">
+                <input type="hidden" name="action" value="create_comment">
+                <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+                <div>
+                  <label class="form-label" for="owner-comment">Update</label>
+                  <textarea class="form-control" id="owner-comment" name="body_text" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-outline-dark">Post update</button>
+              </form>
+            <?php elseif ($isSubscribed): ?>
+              <form method="post" class="d-grid gap-3">
+                <input type="hidden" name="action" value="create_comment">
+                <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+                <div>
+                  <label class="form-label" for="subscriber-comment">Comment</label>
+                  <textarea class="form-control" id="subscriber-comment" name="body_text" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn btn-neutral">Add comment</button>
+              </form>
+            <?php else: ?>
+              <p class="hint mb-0">Subscribe to add a comment.</p>
+            <?php endif; ?>
+          </div>
+          <div class="tab-pane fade" id="commitment-activity" role="tabpanel" aria-labelledby="activity-tab" tabindex="0">
+            <h2 class="h5">Recent posts</h2>
+            <div class="d-grid gap-3">
+              <?php while ($post = $postsResult->fetchArray(SQLITE3_ASSOC)): ?>
+                <div class="border rounded-3 p-3">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                      <p class="mb-1"><strong><?php echo htmlspecialchars($post['author_email'], ENT_QUOTES, 'UTF-8'); ?></strong> · <?php echo htmlspecialchars($post['type'], ENT_QUOTES, 'UTF-8'); ?></p>
+                      <?php if ($post['body_text'] !== ''): ?>
+                        <p class="mb-1"><?php echo nl2br(htmlspecialchars($post['body_text'], ENT_QUOTES, 'UTF-8')); ?></p>
+                      <?php endif; ?>
+                      <?php if ($post['image_url'] !== ''): ?>
+                        <p class="mb-1"><a href="<?php echo htmlspecialchars($post['image_url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noreferrer">View image</a></p>
+                      <?php endif; ?>
+                      <p class="hint mb-0">Posted <?php echo htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                    <span class="status-pill"><?php echo htmlspecialchars($post['type'], ENT_QUOTES, 'UTF-8'); ?></span>
+                  </div>
+                </div>
+              <?php endwhile; ?>
             </div>
-          <?php endwhile; ?>
+          </div>
         </div>
       </section>
     <?php endif; ?>
