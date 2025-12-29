@@ -17,7 +17,11 @@ if ($action === 'login') {
 
 $currentUser = current_user();
 
+<<<<<<< HEAD
 $pageTitle = 'Log in';
+=======
+$pageTitle = 'testing';
+>>>>>>> template/main
 $pageHeading = 'Welcome back';
 $pageHint = 'Sign in to continue to your account.';
 
