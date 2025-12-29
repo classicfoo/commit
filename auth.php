@@ -1,6 +1,8 @@
 <?php
 session_start();
 
+$route = $route ?? (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/');
+
 $databaseDir = __DIR__ . '/data';
 if (!is_dir($databaseDir)) {
     mkdir($databaseDir, 0777, true);
