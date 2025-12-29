@@ -218,13 +218,18 @@ if ($currentUser) {
             $insert->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
             if ($insert->execute()) {
                 $postId = (int) $db->lastInsertRowID();
+                $ownerStatement = $db->prepare('SELECT owner_user_id FROM commitments WHERE id = :commitment_id');
+                $ownerStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                $ownerResult = $ownerStatement->execute();
+                $ownerRow = $ownerResult->fetchArray(SQLITE3_ASSOC);
+                $ownerUserId = $ownerRow ? (int) $ownerRow['owner_user_id'] : 0;
                 $subscriberStatement = $db->prepare('SELECT user_id FROM subscriptions WHERE commitment_id = :commitment_id');
                 $subscriberStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
                 $subscriberResult = $subscriberStatement->execute();
                 $insertNotification = $db->prepare('INSERT INTO notifications (recipient_user_id, commitment_id, post_id, created_at, read_at) VALUES (:recipient_user_id, :commitment_id, :post_id, :created_at, NULL)');
                 while ($subscriber = $subscriberResult->fetchArray(SQLITE3_ASSOC)) {
                     $recipientId = (int) $subscriber['user_id'];
-                    if ($recipientId === (int) $currentUser['id']) {
+                    if ($recipientId === (int) $currentUser['id'] || $recipientId === $ownerUserId) {
                         continue;
                     }
                     $insertNotification->bindValue(':recipient_user_id', $recipientId, SQLITE3_INTEGER);
@@ -267,6 +272,27 @@ if ($currentUser) {
             $insert->bindValue(':image_url', '', SQLITE3_TEXT);
             $insert->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
             if ($insert->execute()) {
+                $postId = (int) $db->lastInsertRowID();
+                $ownerStatement = $db->prepare('SELECT owner_user_id FROM commitments WHERE id = :commitment_id');
+                $ownerStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                $ownerResult = $ownerStatement->execute();
+                $ownerRow = $ownerResult->fetchArray(SQLITE3_ASSOC);
+                $ownerUserId = $ownerRow ? (int) $ownerRow['owner_user_id'] : 0;
+                $subscriberStatement = $db->prepare('SELECT user_id FROM subscriptions WHERE commitment_id = :commitment_id');
+                $subscriberStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                $subscriberResult = $subscriberStatement->execute();
+                $insertNotification = $db->prepare('INSERT INTO notifications (recipient_user_id, commitment_id, post_id, created_at, read_at) VALUES (:recipient_user_id, :commitment_id, :post_id, :created_at, NULL)');
+                while ($subscriber = $subscriberResult->fetchArray(SQLITE3_ASSOC)) {
+                    $recipientId = (int) $subscriber['user_id'];
+                    if ($recipientId === (int) $currentUser['id'] || $recipientId === $ownerUserId) {
+                        continue;
+                    }
+                    $insertNotification->bindValue(':recipient_user_id', $recipientId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':post_id', $postId, SQLITE3_INTEGER);
+                    $insertNotification->bindValue(':created_at', date('Y-m-d H:i:s'), SQLITE3_TEXT);
+                    $insertNotification->execute();
+                }
                 redirect_with_message('index.php?r=commitment&id=' . $commitmentId, 'Comment published.');
             } else {
                 $errors[] = 'Unable to add comment.';
@@ -607,7 +633,7 @@ include __DIR__ . '/auth_header.php';
     <?php endif; ?>
   <?php elseif ($route === 'notifications'): ?>
     <?php
-      $notificationsStatement = $db->prepare('SELECT notifications.*, commitments.title as commitment_title, posts.type as post_type, posts.body_text as post_body, users.email as author_email FROM notifications JOIN commitments ON notifications.commitment_id = commitments.id JOIN posts ON notifications.post_id = posts.id JOIN users ON posts.author_user_id = users.id WHERE notifications.recipient_user_id = :user_id ORDER BY notifications.created_at DESC');
+      $notificationsStatement = $db->prepare('SELECT notifications.*, commitments.title as commitment_title, posts.type as post_type, posts.body_text as post_body, users.email as author_email FROM notifications JOIN commitments ON notifications.commitment_id = commitments.id JOIN posts ON notifications.post_id = posts.id JOIN users ON posts.author_user_id = users.id WHERE notifications.recipient_user_id = :user_id AND posts.author_user_id != :user_id ORDER BY notifications.created_at DESC');
       $notificationsStatement->bindValue(':user_id', $currentUser['id'], SQLITE3_INTEGER);
       $notificationsResult = $notificationsStatement->execute();
     ?>
