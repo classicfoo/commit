@@ -345,48 +345,64 @@ include __DIR__ . '/auth_header.php';
 <?php else: ?>
   <?php if ($route === 'commitments'): ?>
     <?php
+      $activeTab = $_GET['tab'] ?? 'all';
+      if ($action === 'create_commitment') {
+          $activeTab = 'create';
+      }
+      if (!in_array($activeTab, ['all', 'create'], true)) {
+          $activeTab = 'all';
+      }
       $statement = $db->prepare('SELECT commitments.id, commitments.title, commitments.description, commitments.created_at, users.email as owner_email FROM commitments JOIN users ON commitments.owner_user_id = users.id ORDER BY commitments.created_at DESC');
       $commitmentsResult = $statement->execute();
     ?>
-    <section class="surface">
-      <h2 class="h5">All commitments</h2>
-      <p class="hint">Select a commitment to view its requirements, posts, and status.</p>
-      <div class="d-grid gap-3">
-        <?php while ($commitment = $commitmentsResult->fetchArray(SQLITE3_ASSOC)): ?>
-          <div class="border rounded-3 p-3">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <h3 class="h6 mb-1">
-                  <a href="index.php?r=commitment&id=<?php echo (int) $commitment['id']; ?>">
-                    <?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?>
-                  </a>
-                </h3>
-                <p class="hint mb-2">Owner: <?php echo htmlspecialchars($commitment['owner_email'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
-              </div>
-              <span class="status-pill">Commitment</span>
-            </div>
-          </div>
-        <?php endwhile; ?>
-      </div>
-    </section>
+    <div class="d-flex gap-3 mb-4">
+      <a class="btn btn-link p-0 text-decoration-none<?php echo $activeTab === 'all' ? ' text-body fw-semibold' : ' text-muted'; ?>" href="index.php?r=commitments&tab=all">All commitments</a>
+      <a class="btn btn-link p-0 text-decoration-none<?php echo $activeTab === 'create' ? ' text-body fw-semibold' : ' text-muted'; ?>" href="index.php?r=commitments&tab=create">Create commitment</a>
+    </div>
 
-    <section class="surface">
-      <h2 class="h5">Create a commitment</h2>
-      <p class="hint">Start a new commitment and invite others to follow along.</p>
-      <form method="post" class="d-grid gap-3">
-        <input type="hidden" name="action" value="create_commitment">
-        <div>
-          <label class="form-label" for="commitment-title">Title</label>
-          <input class="form-control" type="text" id="commitment-title" name="title" required>
+    <?php if ($activeTab === 'all'): ?>
+      <section class="surface">
+        <h2 class="h5">All commitments</h2>
+        <p class="hint">Select a commitment to view its requirements, posts, and status.</p>
+        <div class="d-grid gap-3">
+          <?php while ($commitment = $commitmentsResult->fetchArray(SQLITE3_ASSOC)): ?>
+            <div class="border rounded-3 p-3">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <h3 class="h6 mb-1">
+                    <a href="index.php?r=commitment&id=<?php echo (int) $commitment['id']; ?>">
+                      <?php echo htmlspecialchars($commitment['title'], ENT_QUOTES, 'UTF-8'); ?>
+                    </a>
+                  </h3>
+                  <p class="hint mb-2">Owner: <?php echo htmlspecialchars($commitment['owner_email'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
+                </div>
+                <span class="status-pill">Commitment</span>
+              </div>
+            </div>
+          <?php endwhile; ?>
         </div>
-        <div>
-          <label class="form-label" for="commitment-description">Description</label>
-          <textarea class="form-control" id="commitment-description" name="description" rows="3" required></textarea>
-        </div>
-        <button type="submit" class="btn btn-neutral">Create commitment</button>
-      </form>
-    </section>
+      </section>
+    <?php endif; ?>
+
+    <?php if ($activeTab === 'create'): ?>
+      <section class="surface">
+        <h2 class="h5">Create a commitment</h2>
+        <p class="hint">Start a new commitment and invite others to follow along.</p>
+        <form method="post" class="d-grid gap-3">
+          <input type="hidden" name="action" value="create_commitment">
+          <div>
+            <label class="form-label" for="commitment-title">Title</label>
+            <input class="form-control" type="text" id="commitment-title" name="title" required>
+          </div>
+          <div>
+            <label class="form-label" for="commitment-description">Description</label>
+            <textarea class="form-control" id="commitment-description" name="description" rows="3" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-neutral">Create commitment</button>
+        </form>
+      </section>
+    <?php endif; ?>
   <?php elseif ($route === 'commitment'): ?>
     <?php
       $commitmentId = (int) ($_GET['id'] ?? 0);
