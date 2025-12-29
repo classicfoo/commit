@@ -181,6 +181,8 @@ $currentUser = $currentUser ?? null;
           </p>
           <div class="menu-card">
             <?php if ($currentUser): ?>
+              <a class="menu-item" href="index.php?r=commitments">Commitments</a>
+              <a class="menu-item" href="index.php?r=notifications">Notifications</a>
               <form method="post" class="menu-action">
                 <input type="hidden" name="action" value="logout">
                 <button type="submit">Logout</button>

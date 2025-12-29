@@ -2,3 +2,6 @@
 *.db
 *.sqlite
 *.sqlite3
+
+commit-notes/.obsidian/workspace.json
+
