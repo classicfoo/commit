@@ -8,9 +8,12 @@ if (!is_dir($databaseDir)) {
 
 $databasePath = $databaseDir . '/app.db';
 $db = new SQLite3($databasePath);
+$db->exec('PRAGMA foreign_keys = ON');
 $db->exec('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL, password_hash TEXT NOT NULL, created_at TEXT NOT NULL)');
-$db->exec('CREATE TABLE IF NOT EXISTS commitments (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_user_id INTEGER NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, created_at TEXT NOT NULL)');
-$db->exec('CREATE TABLE IF NOT EXISTS requirements (id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL, type TEXT NOT NULL, params TEXT NOT NULL, created_at TEXT NOT NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS commitments (id INTEGER PRIMARY KEY AUTOINCREMENT, owner_user_id INTEGER NOT NULL, owner_id INTEGER, title TEXT NOT NULL, description TEXT NOT NULL, start_date TEXT, end_date TEXT, post_frequency TEXT, created_at TEXT NOT NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS requirements (id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL, type TEXT NOT NULL, proof_type TEXT, frequency TEXT, params TEXT NOT NULL, created_at TEXT NOT NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS checkins (id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL, author_user_id INTEGER NOT NULL, body_text TEXT NOT NULL, image_url TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(commitment_id) REFERENCES commitments(id) ON DELETE CASCADE, FOREIGN KEY(author_user_id) REFERENCES users(id) ON DELETE CASCADE)');
+$db->exec('CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL, author_user_id INTEGER NOT NULL, body_text TEXT NOT NULL, created_at TEXT NOT NULL, FOREIGN KEY(commitment_id) REFERENCES commitments(id) ON DELETE CASCADE, FOREIGN KEY(author_user_id) REFERENCES users(id) ON DELETE CASCADE)');
 $db->exec('CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL, author_user_id INTEGER NOT NULL, type TEXT NOT NULL, body_text TEXT NOT NULL, image_url TEXT NOT NULL, created_at TEXT NOT NULL)');
 $db->exec('CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, commitment_id INTEGER NOT NULL, created_at TEXT NOT NULL, UNIQUE(user_id, commitment_id))');
 $db->exec('CREATE TABLE IF NOT EXISTS notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, recipient_user_id INTEGER NOT NULL, commitment_id INTEGER NOT NULL, post_id INTEGER NOT NULL, created_at TEXT NOT NULL, read_at TEXT)');
@@ -26,6 +29,39 @@ if (!in_array('first_name', $columns, true)) {
 }
 if (!in_array('last_name', $columns, true)) {
     $db->exec('ALTER TABLE users ADD COLUMN last_name TEXT NOT NULL DEFAULT ""');
+}
+
+$commitmentTableInfoStatement = $db->prepare('PRAGMA table_info(commitments)');
+$commitmentTableInfo = $commitmentTableInfoStatement->execute();
+$commitmentColumns = [];
+while ($column = $commitmentTableInfo->fetchArray(SQLITE3_ASSOC)) {
+    $commitmentColumns[] = $column['name'];
+}
+if (!in_array('owner_id', $commitmentColumns, true)) {
+    $db->exec('ALTER TABLE commitments ADD COLUMN owner_id INTEGER');
+}
+if (!in_array('start_date', $commitmentColumns, true)) {
+    $db->exec('ALTER TABLE commitments ADD COLUMN start_date TEXT');
+}
+if (!in_array('end_date', $commitmentColumns, true)) {
+    $db->exec('ALTER TABLE commitments ADD COLUMN end_date TEXT');
+}
+if (!in_array('post_frequency', $commitmentColumns, true)) {
+    $db->exec('ALTER TABLE commitments ADD COLUMN post_frequency TEXT');
+}
+$db->exec('UPDATE commitments SET owner_id = owner_user_id WHERE owner_id IS NULL');
+
+$requirementTableInfoStatement = $db->prepare('PRAGMA table_info(requirements)');
+$requirementTableInfo = $requirementTableInfoStatement->execute();
+$requirementColumns = [];
+while ($column = $requirementTableInfo->fetchArray(SQLITE3_ASSOC)) {
+    $requirementColumns[] = $column['name'];
+}
+if (!in_array('proof_type', $requirementColumns, true)) {
+    $db->exec('ALTER TABLE requirements ADD COLUMN proof_type TEXT');
+}
+if (!in_array('frequency', $requirementColumns, true)) {
+    $db->exec('ALTER TABLE requirements ADD COLUMN frequency TEXT');
 }
 
 $userCountStatement = $db->prepare('SELECT COUNT(*) as count FROM users');
@@ -187,4 +223,91 @@ function handle_logout(): string
 function current_user(): ?array
 {
     return $_SESSION['user'] ?? null;
+}
+
+function is_owner(SQLite3 $db, int $userId, int $commitmentId): bool
+{
+    $statement = $db->prepare('SELECT owner_user_id, owner_id FROM commitments WHERE id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $result = $statement->execute();
+    $commitment = $result->fetchArray(SQLITE3_ASSOC);
+    if (!$commitment) {
+        return false;
+    }
+    return (int) $commitment['owner_user_id'] === $userId || (int) $commitment['owner_id'] === $userId;
+}
+
+function is_subscribed(SQLite3 $db, int $userId, int $commitmentId): bool
+{
+    $statement = $db->prepare('SELECT id FROM subscriptions WHERE user_id = :user_id AND commitment_id = :commitment_id');
+    $statement->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $result = $statement->execute();
+    return (bool) $result->fetchArray(SQLITE3_ASSOC);
+}
+
+function can_create_commitment(?array $user): bool
+{
+    return $user !== null;
+}
+
+function can_add_requirement(SQLite3 $db, int $userId, int $commitmentId): bool
+{
+    return is_owner($db, $userId, $commitmentId);
+}
+
+function can_create_checkin(SQLite3 $db, int $userId, int $commitmentId): bool
+{
+    return is_owner($db, $userId, $commitmentId);
+}
+
+function can_create_comment(?array $user): bool
+{
+    return $user !== null;
+}
+
+function can_toggle_subscription(?array $user): bool
+{
+    return $user !== null;
+}
+
+function can_mark_notification_read(SQLite3 $db, int $userId, int $notificationId): bool
+{
+    $statement = $db->prepare('SELECT id FROM notifications WHERE id = :notification_id AND recipient_user_id = :user_id');
+    $statement->bindValue(':notification_id', $notificationId, SQLITE3_INTEGER);
+    $statement->bindValue(':user_id', $userId, SQLITE3_INTEGER);
+    $result = $statement->execute();
+    return (bool) $result->fetchArray(SQLITE3_ASSOC);
+}
+
+function delete_commitment(SQLite3 $db, int $commitmentId): bool
+{
+    $db->exec('BEGIN');
+    $statement = $db->prepare('DELETE FROM requirements WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM checkins WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM comments WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM posts WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM subscriptions WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM notifications WHERE commitment_id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $statement->execute();
+    $statement = $db->prepare('DELETE FROM commitments WHERE id = :commitment_id');
+    $statement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+    $result = $statement->execute();
+    if ($result) {
+        $db->exec('COMMIT');
+        return true;
+    }
+    $db->exec('ROLLBACK');
+    return false;
 }
