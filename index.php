@@ -150,6 +150,9 @@ if ($currentUser) {
         if ($commitmentId <= 0) {
             $errors[] = 'Invalid commitment.';
         }
+        if ($commitmentId > 0 && !can_add_requirement($db, $currentUser['id'], $commitmentId)) {
+            $errors[] = 'Only the owner can add requirements.';
+        }
         if (!in_array($type, ['post_frequency', 'text_update', 'image_required'], true)) {
             $errors[] = 'Invalid requirement type.';
         }
@@ -249,6 +252,9 @@ if ($currentUser) {
         $commitmentId = (int) ($_POST['commitment_id'] ?? 0);
         if ($commitmentId <= 0) {
             $errors[] = 'Invalid commitment.';
+        }
+        if ($commitmentId > 0 && is_owner($db, $currentUser['id'], $commitmentId)) {
+            $errors[] = 'Owners cannot subscribe to their own commitments.';
         }
         if (!$errors) {
             $check = $db->prepare('SELECT id FROM subscriptions WHERE user_id = :user_id AND commitment_id = :commitment_id');
@@ -423,11 +429,15 @@ include __DIR__ . '/auth_header.php';
         $postsStatement = $db->prepare('SELECT posts.*, users.email as author_email FROM posts JOIN users ON posts.author_user_id = users.id WHERE posts.commitment_id = :commitment_id ORDER BY posts.created_at DESC');
         $postsStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
         $postsResult = $postsStatement->execute();
-        $subscriptionStatement = $db->prepare('SELECT id FROM subscriptions WHERE user_id = :user_id AND commitment_id = :commitment_id');
-        $subscriptionStatement->bindValue(':user_id', $currentUser['id'], SQLITE3_INTEGER);
-        $subscriptionStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
-        $subscriptionResult = $subscriptionStatement->execute();
-        $isSubscribed = (bool) $subscriptionResult->fetchArray(SQLITE3_ASSOC);
+        $isOwner = is_owner($db, $currentUser['id'], $commitmentId);
+        $isSubscribed = false;
+        if (!$isOwner) {
+            $subscriptionStatement = $db->prepare('SELECT id FROM subscriptions WHERE user_id = :user_id AND commitment_id = :commitment_id');
+            $subscriptionStatement->bindValue(':user_id', $currentUser['id'], SQLITE3_INTEGER);
+            $subscriptionStatement->bindValue(':commitment_id', $commitmentId, SQLITE3_INTEGER);
+            $subscriptionResult = $subscriptionStatement->execute();
+            $isSubscribed = (bool) $subscriptionResult->fetchArray(SQLITE3_ASSOC);
+        }
         $status = evaluate_commitment_status($db, $commitmentId, (int) $commitment['owner_user_id']);
       ?>
       <section class="surface">
@@ -437,13 +447,15 @@ include __DIR__ . '/auth_header.php';
             <p class="hint mb-3">Owner: <?php echo htmlspecialchars($commitment['owner_email'], ENT_QUOTES, 'UTF-8'); ?></p>
             <p class="mb-0"><?php echo nl2br(htmlspecialchars($commitment['description'], ENT_QUOTES, 'UTF-8')); ?></p>
           </div>
-          <form method="post">
-            <input type="hidden" name="action" value="toggle_subscription">
-            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-            <button type="submit" class="btn btn-outline-dark btn-sm">
-              <?php echo $isSubscribed ? 'Unsubscribe' : 'Subscribe'; ?>
-            </button>
-          </form>
+          <?php if (!$isOwner): ?>
+            <form method="post">
+              <input type="hidden" name="action" value="toggle_subscription">
+              <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+              <button type="submit" class="btn btn-outline-dark btn-sm">
+                <?php echo $isSubscribed ? 'Unsubscribe' : 'Subscribe'; ?>
+              </button>
+            </form>
+          <?php endif; ?>
         </div>
         <div class="divider"></div>
         <div>
@@ -479,26 +491,28 @@ include __DIR__ . '/auth_header.php';
             <?php endforeach; ?>
           </ul>
         <?php else: ?>
-          <p class="hint">No requirements yet. Add one below.</p>
+          <p class="hint">No requirements yet<?php echo $isOwner ? '. Add one below.' : '.'; ?></p>
         <?php endif; ?>
-        <div class="divider"></div>
-        <form method="post" class="d-grid gap-3">
-          <input type="hidden" name="action" value="add_requirement">
-          <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
-          <div>
-            <label class="form-label" for="requirement-type">Requirement type</label>
-            <select class="form-select" id="requirement-type" name="type" required>
-              <option value="post_frequency">Post frequency (daily)</option>
-              <option value="text_update">Text update required</option>
-              <option value="image_required">Image URL required</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label" for="requirement-count">Daily check-ins (for post frequency)</label>
-            <input class="form-control" type="number" id="requirement-count" name="count" min="1" value="1">
-          </div>
-          <button type="submit" class="btn btn-neutral">Add requirement</button>
-        </form>
+        <?php if ($isOwner): ?>
+          <div class="divider"></div>
+          <form method="post" class="d-grid gap-3">
+            <input type="hidden" name="action" value="add_requirement">
+            <input type="hidden" name="commitment_id" value="<?php echo (int) $commitmentId; ?>">
+            <div>
+              <label class="form-label" for="requirement-type">Requirement type</label>
+              <select class="form-select" id="requirement-type" name="type" required>
+                <option value="post_frequency">Post frequency (daily)</option>
+                <option value="text_update">Text update required</option>
+                <option value="image_required">Image URL required</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label" for="requirement-count">Daily check-ins (for post frequency)</label>
+              <input class="form-control" type="number" id="requirement-count" name="count" min="1" value="1">
+            </div>
+            <button type="submit" class="btn btn-neutral">Add requirement</button>
+          </form>
+        <?php endif; ?>
       </section>
 
       <section class="surface">
